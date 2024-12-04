@@ -4,7 +4,8 @@ import { Balances } from "./balances";
 import { Bool, Field, Poseidon, Provable, PublicKey, Struct } from "o1js";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
-import { LimitOrders } from "./limit-orders";
+import { LimitOrders } from "./orderbook";
+import { OrderBundle } from "../utils/limit-order";
 
 export class Pool extends Struct({
     tokenA: TokenId,
@@ -28,16 +29,6 @@ export class Pool extends Struct({
 
     public static getPoolId(tokenA: TokenId, tokenB: TokenId) {
         return Poseidon.hash([tokenA, tokenB]);
-    }
-}
-
-const ORDER_BUNDLE = 10;
-class OrderBundle extends Struct({
-    bundle: Provable.Array(Field, ORDER_BUNDLE),
-}) {
-    public static empty(): OrderBundle {
-        const bundle = Array<Field>(10).fill(Field.from(0));
-        return new OrderBundle({ bundle });
     }
 }
 

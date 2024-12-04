@@ -4,36 +4,7 @@ import { Balances } from "./balances";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { TokenId } from "@proto-kit/library";
 import { Bool, Field, PublicKey, Struct, UInt64 as o1ui64 } from "o1js";
-
-export class LimitOrder extends Struct({
-    tokenIn: TokenId,
-    tokenOut: TokenId,
-    tokenInAmount: Field,
-    tokenOutAmount: Field,
-    owner: PublicKey,
-    expiration: o1ui64,
-    isActive: Bool,
-}) {
-    public static from(
-        tokenIn: TokenId,
-        tokenOut: TokenId,
-        tokenInAmount: Field,
-        tokenOutAmount: Field,
-        owner: PublicKey,
-        expiration: o1ui64,
-        isActive: Bool = Bool(true)
-    ) {
-        return new LimitOrder({
-            tokenIn,
-            tokenOut,
-            tokenInAmount,
-            tokenOutAmount,
-            owner,
-            expiration,
-            isActive,
-        });
-    }
-}
+import { LimitOrder } from "../utils/limit-order";
 
 export class UserTokenKey extends Struct({
     tokenId: TokenId,

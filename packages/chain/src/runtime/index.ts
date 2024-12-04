@@ -2,7 +2,7 @@ import { Balance, VanillaRuntimeModules } from "@proto-kit/library";
 import { ModulesConfig } from "@proto-kit/common";
 
 import { Balances } from "./modules/balances";
-import { LimitOrders } from "./modules/limit-orders";
+import { LimitOrders } from "./modules/orderbook";
 import { PoolModule } from "./modules/pool";
 
 export const modules = VanillaRuntimeModules.with({
