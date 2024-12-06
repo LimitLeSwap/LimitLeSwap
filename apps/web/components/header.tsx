@@ -83,10 +83,10 @@ export default function Header({
                 Pool
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="flex w-48 flex-col gap-4 rounded-2xl p-1">
+            <PopoverContent className="hidden w-20 flex-col gap-1 rounded-2xl p-1 sm:flex sm:w-32 md:w-36 md:gap-2 xl:w-48 xl:gap-4">
               <Button
                 variant={"hover"}
-                className="text-md rounded-2xl hover:bg-gray-100"
+                className="xl:text-md rounded-2xl hover:bg-gray-100 sm:h-8 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
                 onClick={() => {
                   handleNavigate("/create-pool");
                 }}
@@ -95,7 +95,7 @@ export default function Header({
               </Button>
               <Button
                 variant={"hover"}
-                className="text-md rounded-2xl hover:bg-gray-100"
+                className="xl:text-md rounded-2xl hover:bg-gray-100 sm:h-8 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
                 onClick={() => {
                   handleNavigate("/add-liquidity");
                 }}
@@ -104,7 +104,7 @@ export default function Header({
               </Button>
               <Button
                 variant={"hover"}
-                className="text-md rounded-2xl hover:bg-gray-100"
+                className="xl:text-md rounded-2xl hover:bg-gray-100 sm:h-8 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
                 onClick={() => {
                   handleNavigate("/remove-liquidity");
                 }}
@@ -113,7 +113,7 @@ export default function Header({
               </Button>
               <Button
                 variant={"hover"}
-                className="text-md rounded-2xl hover:bg-gray-100"
+                className="xl:text-md rounded-2xl hover:bg-gray-100 sm:h-8 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
                 onClick={() => {
                   handleNavigate("/positions");
                 }}
@@ -176,7 +176,7 @@ export default function Header({
           )}
           <Button
             loading={loading}
-            className="rounded-2xl sm:w-20 md:w-24 xl:w-32"
+            className="rounded-2xl sm:w-24 md:w-28 xl:w-32"
             onClick={onConnectWallet}
           >
             <div className="sm:text-xs md:text-sm xl:text-base">

@@ -33,11 +33,11 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
+    --background: 0, 0%, 7.84%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 0, 0%, 7.84%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 0, 0%, 7.84%;
     --popover-foreground: 0 0% 98%;
     --primary: 263.4 69.3% 42.2%;
     --primary-foreground: 0 0% 98%;

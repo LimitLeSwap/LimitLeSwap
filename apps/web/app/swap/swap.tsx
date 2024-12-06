@@ -318,7 +318,7 @@ export default function Swap() {
             <Label className="text-custom-input px-3 text-sm">
               Sell
               <CustomInput
-                value={state.sellAmount}
+                value={state.sellAmount ? state.sellAmount : ""}
                 onChange={(e) => {
                   setState({ ...state, sellAmount: Number(e.target.value) });
                 }}

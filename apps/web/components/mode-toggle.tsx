@@ -23,7 +23,7 @@ export function ModeToggle() {
       variant="outline"
       size="icon"
       onClick={toggleTheme}
-      className=" mx-4 rounded-2xl"
+      className=" ml-2 rounded-2xl"
     >
       {hasMounted && theme === "dark" ? (
         <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
