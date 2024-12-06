@@ -18,7 +18,7 @@ services:
         depends_on:
             - sequencer
         networks:
-            - routing-net
+            # - routing-net
             - chain-net
         ports:
             - 3000:3000
