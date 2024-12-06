@@ -4,13 +4,15 @@ import truncateMiddle from "truncate-middle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chain } from "./chain";
 import { Separator } from "./ui/separator";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useBalancesStore } from "@/lib/stores/balances";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { ModeToggle } from "./mode-toggle";
 import { DECIMALS } from "@/lib/constants";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { ScrollArea } from "./ui/scroll-area";
 
 export interface HeaderProps {
   loading: boolean;
@@ -36,22 +38,27 @@ export default function Header({
   const balances = useBalancesStore();
   const poolStore = usePoolStore();
   return (
-    <div className="shadow-xs flex items-center justify-between border-b p-4 py-6">
-      <div className="container flex">
-        <div className="flex basis-6/12 items-center justify-start">
-          <ArrowRightLeft className="h-8 w-8 -rotate-45" />
-          <p
-            className="ml-2 cursor-pointer text-2xl font-bold"
-            onClick={() => {
-              handleNavigate("/");
-            }}
-          >
-            LimitLe Swap
-          </p>
-          <Separator className="mx-4 h-8" orientation={"vertical"} />
+    <div className="flex items-center p-4 py-6 sm:justify-start md:justify-evenly xl:justify-between">
+      <div className=" flex ">
+        <ArrowRightLeft className="-rotate-45 sm:h-4 sm:w-4 md:h-6 md:w-6 xl:h-8 xl:w-8" />
+        <p
+          className="ml-1 cursor-pointer whitespace-nowrap font-bold sm:text-sm md:ml-2 md:text-lg xl:text-2xl"
+          onClick={() => {
+            handleNavigate("/");
+          }}
+        >
+          LimitLe Swap
+        </p>
+      </div>
+      <div className="hidden flex-grow justify-between sm:flex">
+        <div className="flex  items-center justify-start">
+          <Separator
+            className="mx-2 sm:h-4 md:mx-2 md:h-6 xl:mx-4 xl:h-8"
+            orientation={"vertical"}
+          />
           <Button
             variant={"hover"}
-            className="text-md"
+            className="xl:text-md sm:h-9 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
             onClick={() => {
               handleNavigate("/swap");
             }}
@@ -60,7 +67,7 @@ export default function Header({
           </Button>
           <Button
             variant={"hover"}
-            className="text-md"
+            className="xl:text-md sm:h-9 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
             onClick={() => {
               handleNavigate("/limit-order");
             }}
@@ -69,7 +76,10 @@ export default function Header({
           </Button>
           <Popover>
             <PopoverTrigger>
-              <Button variant={"hover"} className="text-md">
+              <Button
+                variant={"hover"}
+                className="xl:text-md sm:h-9 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
+              >
                 Pool
               </Button>
             </PopoverTrigger>
@@ -114,7 +124,7 @@ export default function Header({
           </Popover>
           <Button
             variant={"hover"}
-            className="text-md"
+            className="xl:text-md sm:h-9 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
             onClick={() => {
               handleNavigate("/faucet");
             }}
@@ -126,15 +136,17 @@ export default function Header({
           {wallet && (
             <div className="mr-4 flex shrink flex-col items-end justify-center">
               <div>
-                <p className="text-xs">Your balance</p>
+                <p className="whitespace-nowrap text-xs md:text-xs">
+                  Your balance
+                </p>
               </div>
-              <div className="w-32 pt-0.5 text-right">
+              <div className="pt-0.5 text-right sm:w-16 md:w-24 xl:w-32">
                 {balanceLoading && balance === undefined ? (
                   <Skeleton className="h-4 w-full" />
                 ) : (
                   <Popover>
                     <PopoverTrigger>
-                      <p className="text-base font-bold">
+                      <p className="font-bold sm:text-sm xl:text-base">
                         {(
                           BigInt(balances.balances["MINA"] ?? 0) / DECIMALS
                         ).toString()}{" "}
@@ -164,14 +176,113 @@ export default function Header({
           )}
           <Button
             loading={loading}
-            className="w-32 rounded-2xl"
+            className="rounded-2xl sm:w-20 md:w-24 xl:w-32"
             onClick={onConnectWallet}
           >
-            <div>
+            <div className="sm:text-xs md:text-sm xl:text-base">
               {wallet ? truncateMiddle(wallet, 4, 4, "...") : "Connect wallet"}
             </div>
           </Button>
           <ModeToggle />
+        </div>
+      </div>
+      <div className=" flex flex-grow justify-between sm:hidden">
+        <Drawer>
+          <DrawerTrigger>
+            {" "}
+            <Menu className="ml-2 h-6 w-6" />
+          </DrawerTrigger>
+          <DrawerContent>
+            <ScrollArea>
+              <nav className="flex flex-col items-start gap-1">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/swap")}
+                  className="text-left"
+                >
+                  Swap
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/limit-order")}
+                  className="text-left"
+                >
+                  Limit Order
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/create-pool")}
+                  className="text-left"
+                >
+                  Create Pool
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/add-liquidity")}
+                  className="text-left"
+                >
+                  Add Liquidity
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/remove-liquidity")}
+                  className="text-left"
+                >
+                  Remove Liquidity
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/positions")}
+                  className="text-left"
+                >
+                  Positions
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate("/faucet")}
+                  className="text-left"
+                >
+                  Faucet
+                </Button>
+              </nav>
+              <ModeToggle />
+            </ScrollArea>
+          </DrawerContent>
+        </Drawer>
+        <div className="flex flex-row items-center self-end">
+          <Button
+            loading={loading}
+            className="w-24 rounded-2xl"
+            onClick={onConnectWallet}
+          >
+            <div className=" text-xs">
+              {wallet ? (
+                <Drawer>
+                  <DrawerTrigger>
+                    {truncateMiddle(wallet, 4, 4, "...")}
+                  </DrawerTrigger>
+                  <DrawerContent>
+                    {poolStore.tokenList.map((token) => {
+                      return (
+                        <div
+                          key={token.name}
+                          className="flex flex-row justify-end text-right text-sm font-bold"
+                        >
+                          {(
+                            BigInt(balances.balances[token.name] ?? 0) /
+                            DECIMALS
+                          ).toString()}{" "}
+                          {token.name}
+                        </div>
+                      );
+                    })}
+                  </DrawerContent>
+                </Drawer>
+              ) : (
+                "Connect wallet"
+              )}
+            </div>
+          </Button>
         </div>
       </div>
       <div className=" fixed bottom-2 right-2 p-2">
