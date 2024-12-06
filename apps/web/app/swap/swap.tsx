@@ -13,16 +13,15 @@ import {
 import { useWalletStore } from "@/lib/stores/wallet";
 import { ArrowUpDown, Route } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { OrderBundle, Pool, Token, usePoolStore } from "@/lib/stores/poolStore";
+import { OrderBundle, Pool, usePoolStore } from "@/lib/stores/poolStore";
 import useHasMounted from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { Balance, TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
 import { Field, Poseidon, PublicKey } from "o1js";
-import { useLimitStore } from "@/lib/stores/limitStore";
-import { useChainStore } from "@/lib/stores/chain";
 import { DECIMALS } from "@/lib/constants";
 import PoolRatio from "./poolRatio";
+import { calculateSwap, calculateWithLimitOrders } from "./swapFunctions";
 
 export default function Swap() {
   const walletStore = useWalletStore();
@@ -54,113 +53,6 @@ export default function Swap() {
   const hasMounted = useHasMounted();
   const client = useClientStore();
   const { toast } = useToast();
-  const limitStore = useLimitStore();
-  const chainStore = useChainStore();
-
-  const calculateSwap = (
-    poolBuyTokenReserve: number,
-    poolSellTokenReserve: number,
-    sellAmount: number,
-  ) => {
-    const amountInWithFee = sellAmount * 997;
-
-    const numerator = poolBuyTokenReserve * poolSellTokenReserve * 1000;
-    const denominator = poolSellTokenReserve * 1000 + amountInWithFee;
-    const amountOut = poolBuyTokenReserve - numerator / denominator;
-
-    const price = (amountOut / sellAmount).toFixed(2);
-    const priceImpact = (amountOut / poolBuyTokenReserve) * 100;
-
-    return {
-      amountOut,
-      price,
-      priceImpact,
-    };
-  };
-
-  const calculateWithLimitOrders = (
-    buyToken: Token,
-    sellToken: Token,
-    amountOut: number,
-    sellAmount: number,
-    poolBuyTokenReserve: number,
-    poolSellTokenReserve: number,
-  ) => {
-    const limitOrders = limitStore.limitOrders
-      .filter((order) => {
-        return (
-          order.isActive &&
-          Number(order.expiration) > Number(chainStore.block?.height ?? 0) &&
-          order.tokenIn === buyToken?.tokenId &&
-          order.tokenOut === sellToken?.tokenId &&
-          amountOut / sellAmount <=
-            Number(order.tokenInAmount) / Number(order.tokenOutAmount)
-        );
-      })
-      .map((order) => {
-        return {
-          price: Number(order.tokenInAmount) / Number(order.tokenOutAmount),
-          amountIn: Number(order.tokenInAmount),
-          amountOut: Number(order.tokenOutAmount),
-          orderId: order.orderId,
-          tokenIn: order.tokenIn,
-          tokenOut: order.tokenOut,
-        };
-      })
-      .sort((a, b) => -(a.price - b.price));
-
-    console.log(limitOrders);
-
-    const { amountOut: amountOutWithoutLimitOrders } = calculateSwap(
-      poolBuyTokenReserve,
-      poolSellTokenReserve,
-      sellAmount,
-    );
-
-    console.log("amountOutWithoutLimitOrders", amountOutWithoutLimitOrders);
-
-    let bestAmountOut = amountOutWithoutLimitOrders;
-
-    const ordersToFill: any[] = [];
-    let remainingAmountOut = sellAmount;
-    let totalAmountIn = 0;
-
-    // TODO: Implement a better algorithm like knapsack
-    for (let i = 0; i < Math.min(limitOrders.length, 10); i++) {
-      const order = limitOrders[i];
-      if (order.amountOut <= remainingAmountOut) {
-        const { amountOut } = calculateSwap(
-          poolBuyTokenReserve,
-          poolSellTokenReserve,
-          remainingAmountOut - order.amountOut,
-        );
-        console.log(amountOut, order.amountIn, totalAmountIn);
-        console.log(
-          "amountOut + order.amountIn + totalAmountIn",
-          amountOut + order.amountIn + totalAmountIn,
-        );
-        if (amountOut + order.amountIn + totalAmountIn > bestAmountOut) {
-          ordersToFill.push(order);
-          totalAmountIn += order.amountIn;
-          remainingAmountOut -= order.amountOut;
-          bestAmountOut = amountOut + totalAmountIn;
-        }
-      }
-    }
-
-    console.log("fills", ordersToFill);
-    const { priceImpact } = calculateSwap(
-      poolBuyTokenReserve,
-      poolSellTokenReserve,
-      remainingAmountOut,
-    );
-
-    return {
-      ordersToFill,
-      bestAmountOut,
-      newPriceImpact: priceImpact,
-    };
-  };
 
   useEffect(() => {
     let sellToken = poolStore.tokenList.find(
@@ -412,204 +304,201 @@ export default function Swap() {
       walletStore.addPendingTransaction(tx.transaction);
     }
   };
+
   return (
-    <div className="mx-auto -mt-32 h-full pt-16">
-      <div className="flex h-full w-full items-center justify-center pt-16">
-        <div className="flex basis-4/12 flex-col items-center justify-center 2xl:basis-3/12">
-          <Card className="flex w-full flex-col items-center border-0 p-4 shadow-none">
-            <div className="mb-2 flex flex-row items-center justify-center gap-2">
-              <h2 className="text-2xl font-bold">Swap</h2>
-              <Route className="h-6 w-6"></Route>
-            </div>
+    <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
+      <div className="flex w-full max-w-[470px] sm:w-[470px]">
+        <Card className="flex w-full flex-col items-center border-0 shadow-none">
+          <div className="mb-2 flex flex-row items-center justify-center gap-2">
+            <h2 className="text-2xl font-bold">Swap</h2>
+            <Route className="h-6 w-6"></Route>
+          </div>
 
-            <div className="flex flex-row items-center rounded-2xl border p-4">
-              <Label className="text-custom-input px-3 text-sm">
-                Sell
-                <CustomInput
-                  value={state.sellAmount}
-                  onChange={(e) => {
-                    setState({ ...state, sellAmount: Number(e.target.value) });
-                  }}
-                  placeholder={"0"}
-                  pattern="^[0-9]*[.,]?[0-9]*$"
-                  minLength={1}
-                  maxLength={40}
-                  inputMode="decimal"
-                />
-              </Label>
-
-              <Select
-                value={state.sellToken}
-                onValueChange={(value) => {
-                  setState({ ...state, sellToken: value });
+          <div className="flex flex-row items-center rounded-2xl border p-4">
+            <Label className="text-custom-input px-3 text-sm">
+              Sell
+              <CustomInput
+                value={state.sellAmount}
+                onChange={(e) => {
+                  setState({ ...state, sellAmount: Number(e.target.value) });
                 }}
-              >
-                <SelectTrigger className=" w-60 rounded-2xl">
-                  {/* <img src={`/${state.sellToken}.png`} className=" h-4 w-4" /> */}
-                  <SelectValue placeholder="Select a token to swap" />
-                </SelectTrigger>
+                placeholder={"0"}
+                pattern="^[0-9]*[.,]?[0-9]*$"
+                minLength={1}
+                maxLength={40}
+                inputMode="decimal"
+              />
+            </Label>
 
-                <SelectContent className=" items-center  rounded-2xl text-center">
-                  <SelectItem value="MINA">
-                    <div className=" flex w-full flex-row gap-4">
-                      <img src={`/MINA.png`} className=" h-4 w-4" />
-                      MINA
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="USDT">
-                    <div className=" flex w-full flex-row gap-4">
-                      <img src={`/USDT.png`} className=" h-4 w-4" />
-                      USDT
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="ETH">
-                    <div className=" flex w-full flex-row gap-4">
-                      <img src={`/ETH.png`} className=" h-4 w-4" />
-                      ETH
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="BTC">
-                    <div className=" flex w-full flex-row gap-4">
-                      <img src={`/BTC.png`} className=" h-4 w-4" />
-                      BTC
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="relative my-2 w-10">
-              <Button
-                variant={"outline"}
-                className=" absolute bottom-0 left-0 right-0 top-0 mx-auto my-auto border-0  ring-1 ring-border ring-offset-4 hover:bg-card"
-                size={"icon"}
-                onClick={() => {
-                  const sellToken = state.sellToken;
-                  const buyToken = state.buyToken;
-
-                  setState({
-                    ...state,
-                    sellToken: buyToken,
-                    buyToken: sellToken,
-                  });
-                }}
-              >
-                <ArrowUpDown className="h-3 w-3 "></ArrowUpDown>
-              </Button>
-            </div>
-
-            <div className=" flex flex-row items-center rounded-2xl border p-4">
-              <Label className="text-custom-input px-3 text-sm">
-                Buy
-                <CustomInput
-                  value={Number(
-                    (state.buyAmount / Number(DECIMALS)).toFixed(2),
-                  )}
-                  readOnly
-                  placeholder={"0"}
-                  pattern="^[0-9]*[.,]?[0-9]*$"
-                  minLength={1}
-                  maxLength={40}
-                  inputMode="decimal"
-                  type="number"
-                />
-                {limitState.execute ? (
-                  <p className=" text-xl text-green-600">
-                    <span className=" text-xs">With LimitSwap:</span>{" "}
-                    {(limitState.bestAmountOut / Number(DECIMALS)).toFixed(2)}
-                  </p>
-                ) : null}
-                <p
-                  className={
-                    Number(state.priceImpact) > 30
-                      ? " text-red-600"
-                      : Number(state.priceImpact) > 10
-                        ? " text-orange-400"
-                        : " "
-                  }
-                >
-                  Price Impact: {state.priceImpact} %
-                </p>
-                {limitState.execute ? (
-                  <p className=" text-green-600">
-                    <span className=" text-xs">With LimitSwap:</span>{" "}
-                    {limitState.newPriceImpact} %
-                  </p>
-                ) : null}
-              </Label>
-
-              <Select
-                value={state.buyToken}
-                onValueChange={(value) => {
-                  setState({ ...state, buyToken: value });
-                }}
-              >
-                <SelectTrigger className=" w-60 rounded-2xl">
-                  <img src={`/${state.buyToken}.png`} className=" h-4 w-4" />
-                  <SelectValue placeholder="Select a token to swap" />
-                </SelectTrigger>
-
-                <SelectContent className=" items-center  rounded-2xl text-center">
-                  <SelectItem value="MINA">MINA</SelectItem>
-                  <SelectItem value="USDT">USDT</SelectItem>
-                  <SelectItem value="ETH">ETH</SelectItem>
-                  <SelectItem value="BTC">BTC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              size={"lg"}
-              type="submit"
-              className="mt-6 w-full rounded-2xl"
-              disabled={!wallet || !pool}
-              onClick={() => {
-                wallet ?? onConnectWallet();
-                wallet && handleSubmit();
+            <Select
+              value={state.sellToken}
+              onValueChange={(value) => {
+                setState({ ...state, sellToken: value });
               }}
             >
-              {wallet
-                ? pool
-                  ? limitState.execute
-                    ? "LimitLeSwap!"
-                    : "Swap"
-                  : "Pool Not Found"
-                : "Connect wallet"}
-            </Button>
+              <SelectTrigger className=" w-60 rounded-2xl">
+                {/* <img src={`/${state.sellToken}.png`} className=" h-4 w-4" /> */}
+                <SelectValue placeholder="Select a token to swap" />
+              </SelectTrigger>
 
-            {wallet && pool ? (
-              seePoolDetails && pool ? (
-                <>
-                  <div className="mt-2 flex w-full justify-start px-2">
-                    <p
-                      className=" text-custom-input cursor-pointer text-sm"
-                      onClick={() => {
-                        setSeePoolDetails(false);
-                      }}
-                    >
-                      Hide Impact Chart
-                    </p>
+              <SelectContent className=" items-center  rounded-2xl text-center">
+                <SelectItem value="MINA">
+                  <div className=" flex w-full flex-row gap-4">
+                    <img src={`/MINA.png`} className=" h-4 w-4" />
+                    MINA
                   </div>
-                  <PoolRatio
-                    pool={pool}
-                    newPool={newPool ? newPool : undefined}
-                  />
-                </>
-              ) : (
+                </SelectItem>
+                <SelectItem value="USDT">
+                  <div className=" flex w-full flex-row gap-4">
+                    <img src={`/USDT.png`} className=" h-4 w-4" />
+                    USDT
+                  </div>
+                </SelectItem>
+                <SelectItem value="ETH">
+                  <div className=" flex w-full flex-row gap-4">
+                    <img src={`/ETH.png`} className=" h-4 w-4" />
+                    ETH
+                  </div>
+                </SelectItem>
+                <SelectItem value="BTC">
+                  <div className=" flex w-full flex-row gap-4">
+                    <img src={`/BTC.png`} className=" h-4 w-4" />
+                    BTC
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="relative my-1 w-10">
+            <Button
+              variant={"outline"}
+              className=" absolute bottom-0 left-0 right-0 top-0 mx-auto my-auto border-0  ring-1 ring-border ring-offset-4 hover:bg-card"
+              size={"icon"}
+              onClick={() => {
+                const sellToken = state.sellToken;
+                const buyToken = state.buyToken;
+
+                setState({
+                  ...state,
+                  sellToken: buyToken,
+                  buyToken: sellToken,
+                });
+              }}
+            >
+              <ArrowUpDown className="h-3 w-3 "></ArrowUpDown>
+            </Button>
+          </div>
+
+          <div className=" flex flex-row items-center rounded-2xl border p-4">
+            <Label className="text-custom-input px-3 text-sm">
+              Buy
+              <CustomInput
+                value={Number((state.buyAmount / Number(DECIMALS)).toFixed(2))}
+                readOnly
+                placeholder={"0"}
+                pattern="^[0-9]*[.,]?[0-9]*$"
+                minLength={1}
+                maxLength={40}
+                inputMode="decimal"
+                type="number"
+              />
+              {limitState.execute ? (
+                <p className=" text-xl text-green-600">
+                  <span className=" text-xs">With LimitSwap:</span>{" "}
+                  {(limitState.bestAmountOut / Number(DECIMALS)).toFixed(2)}
+                </p>
+              ) : null}
+              <p
+                className={
+                  Number(state.priceImpact) > 30
+                    ? " text-red-600"
+                    : Number(state.priceImpact) > 10
+                      ? " text-orange-400"
+                      : " "
+                }
+              >
+                Price Impact: {state.priceImpact} %
+              </p>
+              {limitState.execute ? (
+                <p className=" text-green-600">
+                  <span className=" text-xs">With LimitSwap:</span>{" "}
+                  {limitState.newPriceImpact} %
+                </p>
+              ) : null}
+            </Label>
+
+            <Select
+              value={state.buyToken}
+              onValueChange={(value) => {
+                setState({ ...state, buyToken: value });
+              }}
+            >
+              <SelectTrigger className=" w-60 rounded-2xl">
+                <img src={`/${state.buyToken}.png`} className=" h-4 w-4" />
+                <SelectValue placeholder="Select a token to swap" />
+              </SelectTrigger>
+
+              <SelectContent className=" items-center  rounded-2xl text-center">
+                <SelectItem value="MINA">MINA</SelectItem>
+                <SelectItem value="USDT">USDT</SelectItem>
+                <SelectItem value="ETH">ETH</SelectItem>
+                <SelectItem value="BTC">BTC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            size={"lg"}
+            type="submit"
+            className="mt-6 w-full rounded-2xl"
+            disabled={!wallet || !pool}
+            onClick={() => {
+              wallet ?? onConnectWallet();
+              wallet && handleSubmit();
+            }}
+          >
+            {wallet
+              ? pool
+                ? limitState.execute
+                  ? "LimitLeSwap!"
+                  : "Swap"
+                : "Pool Not Found"
+              : "Connect wallet"}
+          </Button>
+
+          {wallet && pool ? (
+            seePoolDetails && pool ? (
+              <>
                 <div className="mt-2 flex w-full justify-start px-2">
                   <p
                     className=" text-custom-input cursor-pointer text-sm"
                     onClick={() => {
-                      setSeePoolDetails(true);
+                      setSeePoolDetails(false);
                     }}
                   >
-                    Show Impact Chart
+                    Hide Impact Chart
                   </p>
                 </div>
-              )
-            ) : null}
-          </Card>
-        </div>
+                <PoolRatio
+                  pool={pool}
+                  newPool={newPool ? newPool : undefined}
+                />
+              </>
+            ) : (
+              <div className="mt-2 flex w-full justify-start px-2">
+                <p
+                  className=" text-custom-input cursor-pointer text-sm"
+                  onClick={() => {
+                    setSeePoolDetails(true);
+                  }}
+                >
+                  Show Impact Chart
+                </p>
+              </div>
+            )
+          ) : null}
+        </Card>
       </div>
     </div>
   );
