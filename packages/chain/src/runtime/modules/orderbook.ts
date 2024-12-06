@@ -3,26 +3,16 @@ import { inject } from "tsyringe";
 import { Balances } from "./balances";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { TokenId } from "@proto-kit/library";
-import { Bool, Field, PublicKey, Struct, UInt64 as o1ui64 } from "o1js";
+import { Bool, Field, UInt64 as o1ui64 } from "o1js";
 import { LimitOrder } from "../utils/limit-order";
+import { UserCaptivedTokenKey } from "../utils/user-captived-token-key";
 
-export class UserTokenKey extends Struct({
-    tokenId: TokenId,
-    owner: PublicKey,
-}) {
-    public static from(tokenId: TokenId, owner: PublicKey) {
-        return new UserTokenKey({
-            tokenId,
-            owner,
-        });
-    }
-}
+interface OrderBookConfig {}
 
 @runtimeModule()
-export class LimitOrders extends RuntimeModule<{}> {
+export class OrderBook extends RuntimeModule<OrderBookConfig> {
     @state() public orderNonce = State.from<Field>(Field);
     @state() public orders = StateMap.from<Field, LimitOrder>(Field, LimitOrder);
-    @state() public captivedAmount = StateMap.from<UserTokenKey, Field>(UserTokenKey, Field);
 
     public constructor(@inject("Balances") private balances: Balances) {
         super();
@@ -38,8 +28,9 @@ export class LimitOrders extends RuntimeModule<{}> {
     ): Promise<void> {
         const sender = this.transaction.sender.value;
         const senderBalance = await this.balances.getBalance(tokenIn, sender);
-        // prevent unlimited orders
-        const captivedAmount = await this.captivedAmount.get(UserTokenKey.from(tokenIn, sender));
+        const captivedAmount = await this.balances.userCaptivedAmount.get(
+            UserCaptivedTokenKey.from(tokenIn, sender)
+        );
         const senderAvailableBalance = senderBalance.value.sub(captivedAmount.value);
         const currentBlock = this.network.block.height;
         const expirationBlock = expiration.add(currentBlock);
@@ -67,7 +58,10 @@ export class LimitOrders extends RuntimeModule<{}> {
         await this.orders.set(nonce.value, order);
         await this.orderNonce.set(nonce.value.add(1));
 
-        await this.captivedAmount.set(UserTokenKey.from(tokenIn, sender), newCaptivedAmount);
+        await this.balances.userCaptivedAmount.set(
+            UserCaptivedTokenKey.from(tokenIn, sender),
+            newCaptivedAmount
+        );
     }
 
     @runtimeMethod()
@@ -77,13 +71,13 @@ export class LimitOrders extends RuntimeModule<{}> {
         assert(order.value.owner.equals(sender), "Only the owner can cancel the order");
         assert(order.value.isActive, "Order is already canceled");
 
-        const captivedAmount = await this.captivedAmount.get(
-            UserTokenKey.from(order.value.tokenIn, sender)
+        const captivedAmount = await this.balances.userCaptivedAmount.get(
+            UserCaptivedTokenKey.from(order.value.tokenIn, sender)
         );
         const newCaptivedAmount = captivedAmount.value.add(order.value.tokenInAmount);
 
-        await this.captivedAmount.set(
-            UserTokenKey.from(order.value.tokenIn, sender),
+        await this.balances.userCaptivedAmount.set(
+            UserCaptivedTokenKey.from(order.value.tokenIn, sender),
             newCaptivedAmount
         );
 
