@@ -1,9 +1,8 @@
 import { runtimeMethod, runtimeModule, state } from "@proto-kit/module";
-import { State, StateMap } from "@proto-kit/protocol";
+import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, Balances as BaseBalances, TokenId } from "@proto-kit/library";
 import { Field, PublicKey } from "o1js";
 import { UserCaptivedTokenKey } from "../utils/user-captived-token-key";
-import { assert } from "console";
 
 interface BalancesConfig {}
 

@@ -1,10 +1,11 @@
+import "reflect-metadata";
 import { runtimeMethod, RuntimeModule, runtimeModule, state } from "@proto-kit/module";
 import { inject } from "tsyringe";
 import { Balances } from "./balances";
 import { Bool, Field, Poseidon, Provable, PublicKey, Struct } from "o1js";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
-import { LimitOrders } from "./orderbook";
+import { OrderBook } from "./orderbook";
 import { OrderBundle } from "../utils/limit-order";
 
 export class Pool extends Struct({
@@ -12,34 +13,43 @@ export class Pool extends Struct({
     tokenB: TokenId,
     tokenAmountA: Balance,
     tokenAmountB: Balance,
+    // fee: UInt64,
 }) {
     public static from(
         tokenA: TokenId,
         tokenB: TokenId,
         tokenAmountA: Balance,
         tokenAmountB: Balance
+        // fee: UInt64
     ) {
         return new Pool({
             tokenA,
             tokenB,
             tokenAmountA,
             tokenAmountB,
+            // fee,
         });
     }
 
-    public static getPoolId(tokenA: TokenId, tokenB: TokenId) {
+    public static calculatePoolId(tokenA: TokenId, tokenB: TokenId) {
         return Poseidon.hash([tokenA, tokenB]);
+    }
+
+    public getPoolId() {
+        return Poseidon.hash([this.tokenA, this.tokenB]);
     }
 }
 
+interface PoolModuleConfig {}
+
 @runtimeModule()
-export class PoolModule extends RuntimeModule<{}> {
+export class PoolModule extends RuntimeModule<PoolModuleConfig> {
     @state() public pools = StateMap.from<Field, Pool>(Field, Pool);
     @state() public poolIds = StateMap.from<Field, Field>(Field, Field);
     @state() public poolCount = State.from(Field);
     public constructor(
         @inject("Balances") private balances: Balances,
-        @inject("LimitOrders") private limitOrders: LimitOrders
+        @inject("OrderBook") private orderBook: OrderBook
     ) {
         super();
     }
@@ -345,7 +355,7 @@ export class PoolModule extends RuntimeModule<{}> {
         for (let i = 0; i < 10; i++) {
             const limitOrderId = limitOrders.bundle[i];
             assert(limitOrderId.greaterThanOrEqual(Field.from(0)), "Invalid limit order id");
-            const order = (await this.limitOrders.orders.get(limitOrderId)).value;
+            const order = (await this.orderBook.orders.get(limitOrderId)).value;
             let isActive = order.isActive.and(
                 order.expiration.greaterThanOrEqual(this.network.block.height)
             );
@@ -396,7 +406,7 @@ export class PoolModule extends RuntimeModule<{}> {
                 Balance.from(amountToTake)
             );
             order.isActive = Bool(false);
-            await this.limitOrders.orders.set(limitOrderId, order);
+            await this.orderBook.orders.set(limitOrderId, order);
         }
         const remainingAmountOut = amountOut.sub(limitOrderFills);
         Provable.asProver(() => {
