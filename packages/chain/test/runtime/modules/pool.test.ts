@@ -1,30 +1,95 @@
 import "reflect-metadata";
-import { TestingAppChain } from "@proto-kit/sdk";
+import {
+    BlockStorageNetworkStateModule,
+    InMemorySigner,
+    InMemoryTransactionSender,
+    StateServiceQueryModule,
+    TestingAppChain,
+} from "@proto-kit/sdk";
 import { PoolModule } from "../../../src/runtime/modules/pool";
 import { log } from "@proto-kit/common";
 import { PrivateKey } from "o1js";
-import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
+import {
+    BalancesKey,
+    InMemorySequencerModules,
+    TokenId,
+    UInt64,
+    VanillaProtocolModules,
+    VanillaRuntimeModules,
+} from "@proto-kit/library";
 import { Balances } from "../../../src/runtime/modules/balances";
-import { LimitOrders } from "../../../src/runtime/modules/orderbook";
+import { OrderBook } from "../../../src/runtime/modules/orderbook";
+import { Runtime } from "@proto-kit/module";
+import { Protocol } from "@proto-kit/protocol";
+import { Sequencer } from "@proto-kit/sequencer";
 
 log.setLevel("ERROR");
 
 describe("pool", () => {
     it("should demonstrate how pool works", async () => {
-        const appChain = TestingAppChain.fromRuntime({
-            PoolModule,
-            Balances,
-            LimitOrders,
+        const appChain = new TestingAppChain({
+            Runtime: Runtime.from({
+                modules: VanillaRuntimeModules.with({
+                    Balances: Balances,
+                    OrderBook: OrderBook,
+                    PoolModule: PoolModule,
+                }),
+            }),
+            Protocol: Protocol.from({
+                modules: VanillaProtocolModules.mandatoryModules({}),
+            }),
+            Sequencer: Sequencer.from({
+                modules: InMemorySequencerModules.with({}),
+            }),
+
+            modules: {
+                Signer: InMemorySigner,
+                TransactionSender: InMemoryTransactionSender,
+                QueryTransportModule: StateServiceQueryModule,
+                NetworkStateTransportModule: BlockStorageNetworkStateModule,
+            },
         });
 
         appChain.configurePartial({
             Runtime: {
-                Balances: {
-                    totalSupply: UInt64.from(10000),
-                },
+                Balances: {},
+                OrderBook: {},
                 PoolModule: {},
-                LimitOrders: {},
             },
+            Protocol: {
+                AccountState: {},
+                BlockProver: {},
+                StateTransitionProver: {},
+                BlockHeight: {},
+                LastStateRoot: {},
+            },
+            Sequencer: {
+                Database: {},
+                BlockTrigger: {},
+                Mempool: {},
+                BlockProducerModule: {},
+                LocalTaskWorkerModule: {
+                    StateTransitionReductionTask: {},
+                    StateTransitionTask: {},
+                    RuntimeProvingTask: {},
+                    BlockBuildingTask: {},
+                    BlockProvingTask: {},
+                    BlockReductionTask: {},
+                    CircuitCompilerTask: {},
+                    WorkerRegistrationTask: {},
+                },
+                BaseLayer: {},
+                BatchProducerModule: {},
+                TaskQueue: {
+                    simulatedDuration: 0,
+                },
+            },
+            Signer: {
+                signer: PrivateKey.random(),
+            },
+            TransactionSender: {},
+            QueryTransportModule: {},
+            NetworkStateTransportModule: {},
         });
 
         await appChain.start();
