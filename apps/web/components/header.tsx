@@ -1,35 +1,24 @@
 import { Button } from "@/components/ui/button";
-// @ts-ignore
-import truncateMiddle from "truncate-middle";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Chain } from "./chain";
 import { Separator } from "./ui/separator";
 import { ArrowRightLeft, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useBalancesStore } from "@/lib/stores/balances";
-import { usePoolStore } from "@/lib/stores/poolStore";
 import { ModeToggle } from "./mode-toggle";
-import { DECIMALS } from "@/lib/constants";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "./ui/scroll-area";
-import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import Web3wallet from "./web3wallet";
 
 export interface HeaderProps {
   loading: boolean;
-  wallet?: string;
-  onConnectWallet: () => void;
-  balance?: string;
-  balanceLoading: boolean;
+  isMobile: boolean;
   blockHeight?: string;
 }
 
 export default function Header({
   loading,
-  wallet,
-  onConnectWallet,
-  balance,
-  balanceLoading,
+  isMobile,
   blockHeight,
 }: HeaderProps) {
   const router = useRouter();
@@ -37,7 +26,6 @@ export default function Header({
     router.push(path);
   };
   const balances = useBalancesStore();
-  const poolStore = usePoolStore();
   return (
     <div className="flex items-center p-4 py-6 sm:justify-start md:justify-evenly xl:justify-between">
       <div className=" flex ">
@@ -133,57 +121,12 @@ export default function Header({
             Faucet
           </Button>
         </div>
-        <div className="flex basis-6/12 flex-row items-center justify-end">
-          {wallet && (
-            <div className="mr-4 flex shrink flex-col items-end justify-center">
-              <div>
-                <p className="whitespace-nowrap text-xs md:text-xs">
-                  Your balance
-                </p>
-              </div>
-              <div className="pt-0.5 text-right sm:w-16 md:w-24 xl:w-32">
-                {balanceLoading && balance === undefined ? (
-                  <Skeleton className="h-4 w-full" />
-                ) : (
-                  <Sheet>
-                    <SheetTrigger>
-                      <p className="font-bold sm:text-sm xl:text-base">
-                        {(
-                          BigInt(balances.balances["MINA"] ?? 0) / DECIMALS
-                        ).toString()}{" "}
-                        MINA
-                      </p>
-                    </SheetTrigger>
-                    <SheetContent className="flex w-fit flex-col gap-4 rounded-2xl p-4 px-6">
-                      {poolStore.tokenList.map((token) => {
-                        return (
-                          <div
-                            key={token.name}
-                            className="flex flex-row justify-end text-right text-sm font-bold"
-                          >
-                            {(
-                              BigInt(balances.balances[token.name] ?? 0) /
-                              DECIMALS
-                            ).toString()}{" "}
-                            {token.name}
-                          </div>
-                        );
-                      })}
-                    </SheetContent>
-                  </Sheet>
-                )}
-              </div>
-            </div>
-          )}
-          <Button
+        <div className="flex items-center justify-end">
+          <Web3wallet
             loading={loading}
-            className="rounded-2xl sm:w-24 md:w-28 xl:w-32"
-            onClick={onConnectWallet}
-          >
-            <div className="sm:text-xs md:text-sm xl:text-base">
-              {wallet ? truncateMiddle(wallet, 4, 4, "...") : "Connect wallet"}
-            </div>
-          </Button>
+            isMobile={isMobile}
+            balances={balances}
+          />
           <ModeToggle />
         </div>
       </div>
@@ -250,41 +193,7 @@ export default function Header({
             </ScrollArea>
           </DrawerContent>
         </Drawer>
-        <div className="flex flex-row items-center self-end">
-          <Button
-            loading={loading}
-            className="w-24 rounded-2xl"
-            onClick={onConnectWallet}
-          >
-            <div className=" text-xs">
-              {wallet ? (
-                <Drawer>
-                  <DrawerTrigger>
-                    {truncateMiddle(wallet, 4, 4, "...")}
-                  </DrawerTrigger>
-                  <DrawerContent>
-                    {poolStore.tokenList.map((token) => {
-                      return (
-                        <div
-                          key={token.name}
-                          className="flex flex-row justify-end text-right text-sm font-bold"
-                        >
-                          {(
-                            BigInt(balances.balances[token.name] ?? 0) /
-                            DECIMALS
-                          ).toString()}{" "}
-                          {token.name}
-                        </div>
-                      );
-                    })}
-                  </DrawerContent>
-                </Drawer>
-              ) : (
-                "Connect wallet"
-              )}
-            </div>
-          </Button>
-        </div>
+        <Web3wallet loading={loading} isMobile={isMobile} balances={balances} />
       </div>
       <div className=" fixed bottom-2 right-2 p-2">
         <Chain height={blockHeight} />

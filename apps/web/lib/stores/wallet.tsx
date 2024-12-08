@@ -9,13 +9,22 @@ import truncateMiddle from "truncate-middle";
 import { usePrevious } from "@uidotdev/usehooks";
 import { useClientStore } from "./client";
 import { useChainStore } from "./chain";
-import { Bool, Field, PublicKey, Signature, UInt64 } from "o1js";
+import { Field, PublicKey, Signature, UInt64 } from "o1js";
 
 export interface WalletState {
+  isConnected: boolean;
+  walletInstalled: boolean;
   wallet?: string;
-  initializeWallet: () => Promise<void>;
-  connectWallet: () => Promise<void>;
+  network?: string;
+
+  setWalletInstalled: (
+    walletInstalled: boolean,
+    wallet?: string,
+    network?: string,
+  ) => void;
   observeWalletChange: () => void;
+  connect: () => Promise<number>;
+  disconnect: () => void;
 
   pendingTransactions: PendingTransaction[];
   addPendingTransaction: (pendingTransaction: PendingTransaction) => void;
@@ -24,39 +33,64 @@ export interface WalletState {
 
 export const useWalletStore = create<WalletState, [["zustand/immer", never]]>(
   immer((set) => ({
-    async initializeWallet() {
-      if (typeof mina === "undefined") {
-        throw new Error("Auro wallet not installed");
-      }
+    isConnected: false,
+    walletInstalled: false,
+    wallet: undefined,
+    network: undefined,
 
-      const [wallet] = await mina.getAccounts();
-
-      set((state) => {
-        state.wallet = wallet;
-      });
-    },
-    async connectWallet() {
-      if (typeof mina === "undefined") {
-        throw new Error("Auro wallet not installed");
-      }
-
-      const [wallet] = await mina.requestAccounts();
-
-      set((state) => {
-        state.wallet = wallet;
-      });
-    },
+    setWalletInstalled: (
+      walletInstalled: boolean,
+      wallet?: string,
+      network?: string,
+    ) =>
+      set({
+        walletInstalled,
+        wallet,
+        network,
+      }),
     observeWalletChange() {
-      if (typeof mina === "undefined") {
-        throw new Error("Auro wallet not installed");
+      if (typeof window === "undefined" || typeof window.mina === "undefined") {
+        return;
       }
 
-      mina.on("accountsChanged", ([wallet]) => {
+      window.mina.on("accountsChanged", ([wallet]) => {
         set((state) => {
           state.wallet = wallet;
+          state.isConnected = !!wallet;
         });
       });
     },
+
+    async connect() {
+      if (window.mina === undefined) {
+        console.error("Mina wallet not installed");
+        return 0;
+      }
+
+      try {
+        const wallet = await window.mina.requestAccounts();
+        await window.mina?.switchChain({ networkID: "mina:testnet" });
+        if (wallet[0]) {
+          set((state) => {
+            state.isConnected = true;
+            state.walletInstalled = true;
+            state.wallet = wallet[0];
+          });
+          return 1;
+        }
+      } catch (e) {
+        console.error(e);
+        return 2;
+      }
+
+      return 2;
+    },
+
+    disconnect: () =>
+      set({
+        isConnected: false,
+        wallet: undefined,
+      }),
 
     pendingTransactions: [] as PendingTransaction[],
     addPendingTransaction(pendingTransaction) {
