@@ -14,7 +14,7 @@ import { useWalletStore } from "@/lib/stores/wallet";
 import { ArrowUpDown, Route } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { OrderBundle, Pool, usePoolStore } from "@/lib/stores/poolStore";
-import useHasMounted from "@/lib/customHooks";
+import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { Balance, TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,7 +25,7 @@ import { calculateSwap, calculateWithLimitOrders } from "./swapFunctions";
 
 export default function Swap() {
   const walletStore = useWalletStore();
-  const onConnectWallet = walletStore.connectWallet;
+  const onConnectWallet = walletStore.connect;
   const wallet = walletStore.wallet;
   const [state, setState] = useState({
     sellToken: "MINA",

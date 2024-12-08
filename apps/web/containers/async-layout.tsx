@@ -6,13 +6,14 @@ import { useChainStore, usePollBlockHeight } from "@/lib/stores/chain";
 import { useClientStore } from "@/lib/stores/client";
 import { useObserveOrders } from "@/lib/stores/limitStore";
 import { useNotifyTransactions, useWalletStore } from "@/lib/stores/wallet";
-import { ReactNode, useEffect, useMemo } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 
 export default function AsyncLayout({ children }: { children: ReactNode }) {
   const wallet = useWalletStore();
   const client = useClientStore();
   const chain = useChainStore();
   const balances = useBalancesStore();
+  const [isMobile, setIsMobile] = useState(false);
 
   usePollBlockHeight();
   useObserveBalance();
@@ -24,7 +25,6 @@ export default function AsyncLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    wallet.initializeWallet();
     wallet.observeWalletChange();
   }, []);
 
@@ -33,15 +33,18 @@ export default function AsyncLayout({ children }: { children: ReactNode }) {
     [client.loading, balances.loading],
   );
 
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 640px)").matches;
+    console.log("isMobile", isMobile);
+    setIsMobile(isMobile);
+  }, []);
+
   return (
     <>
       <ThemeProvider attribute="class" defaultTheme="light">
         <Header
           loading={client.loading}
-          balance={balances.balances[wallet.wallet ? "MINA" : ""]}
-          balanceLoading={loading}
-          wallet={wallet.wallet}
-          onConnectWallet={wallet.connectWallet}
+          isMobile={isMobile}
           blockHeight={chain.block?.height ?? "-"}
         />
         {children}

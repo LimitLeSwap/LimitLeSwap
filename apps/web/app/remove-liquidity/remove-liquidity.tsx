@@ -13,7 +13,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { DECIMALS } from "@/lib/constants";
-import useHasMounted from "@/lib/customHooks";
+import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { Position, usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
@@ -25,7 +25,7 @@ import React, { useEffect, useState } from "react";
 export default function RemoveLiq() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connectWallet;
+  const onConnectWallet = walletStore.connect;
   const poolStore = usePoolStore();
   const hasMounted = useHasMounted();
   const client = useClientStore();
