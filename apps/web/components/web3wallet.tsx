@@ -8,7 +8,11 @@ import { Drawer, DrawerContent } from "./ui/drawer";
 import { DECIMALS } from "@/lib/constants";
 import { BalancesState } from "@/lib/stores/balances";
 import { usePoolStore } from "@/lib/stores/poolStore";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Avatar } from "./ui/avatar";
+import Jazzicon from "react-jazzicon";
+import base58Decode from "@/lib/base56Decoder";
+import Unlink from "./icons/unlink";
 
 interface Web3walletProps {
   loading: boolean;
@@ -99,6 +103,30 @@ export default function Web3wallet({
         {walletStore.wallet && (
           <Sheet open={open && !isMobile} onOpenChange={setOpen}>
             <SheetContent className="flex w-80 flex-col gap-4 rounded-2xl p-4 px-6">
+              <SheetHeader>
+                <SheetTitle className=" flex w-52  flex-col items-start text-base font-bold">
+                  <div className=" flex w-full flex-row items-center justify-start">
+                    <Avatar>
+                      <Jazzicon
+                        diameter={30}
+                        seed={base58Decode(walletStore.wallet)}
+                      />
+                    </Avatar>
+                    {truncateMiddle(walletStore.wallet, 4, 4, "...")}
+                  </div>
+                  <Button
+                    className="flex  rounded-2xl border-0"
+                    variant={"outline"}
+                    onClick={() => {
+                      setOpen(false);
+                      walletStore.disconnect();
+                    }}
+                  >
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Disconnect
+                  </Button>
+                </SheetTitle>
+              </SheetHeader>
               {poolStore.tokenList.map((token) => {
                 return (
                   <div
