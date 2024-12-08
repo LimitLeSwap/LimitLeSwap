@@ -28,9 +28,9 @@ export default function Positions() {
   const router = useRouter();
 
   return (
-    <div className="mx-auto -mt-32 h-full pt-16">
-      <div className="flex h-full w-full items-center justify-center pt-16">
-        <div className="flex basis-2/5 flex-col items-center justify-center">
+    <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
+      <div className="flex w-full max-w-[470px] sm:w-[470px]">
+        <div className="flex w-full flex-col items-center">
           <h2 className=" p-4 text-lg font-bold">My Positions</h2>
           <div className="rounded-2xl border">
             <Table>

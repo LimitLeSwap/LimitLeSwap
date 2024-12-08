@@ -13,6 +13,7 @@ import { ModeToggle } from "./mode-toggle";
 import { DECIMALS } from "@/lib/constants";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "./ui/scroll-area";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 
 export interface HeaderProps {
   loading: boolean;
@@ -144,16 +145,16 @@ export default function Header({
                 {balanceLoading && balance === undefined ? (
                   <Skeleton className="h-4 w-full" />
                 ) : (
-                  <Popover>
-                    <PopoverTrigger>
+                  <Sheet>
+                    <SheetTrigger>
                       <p className="font-bold sm:text-sm xl:text-base">
                         {(
                           BigInt(balances.balances["MINA"] ?? 0) / DECIMALS
                         ).toString()}{" "}
                         MINA
                       </p>
-                    </PopoverTrigger>
-                    <PopoverContent className="flex w-fit flex-col gap-4 rounded-2xl p-4 px-6">
+                    </SheetTrigger>
+                    <SheetContent className="flex w-fit flex-col gap-4 rounded-2xl p-4 px-6">
                       {poolStore.tokenList.map((token) => {
                         return (
                           <div
@@ -168,8 +169,8 @@ export default function Header({
                           </div>
                         );
                       })}
-                    </PopoverContent>
-                  </Popover>
+                    </SheetContent>
+                  </Sheet>
                 )}
               </div>
             </div>

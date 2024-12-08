@@ -44,7 +44,7 @@ export default function Faucet() {
       <div className="flex w-full max-w-[470px] flex-col sm:w-[470px]">
         <div className="mb-2 flex flex-row items-center justify-center gap-2">
           <h2 className="text-xl font-bold">Token Faucet</h2>
-          <Fuel className="h-6 w-6" />
+          <Fuel className="h-4 w-4" />
         </div>
         <Card className="w-full rounded-2xl p-4">
           <div className="mb-2">
