@@ -3,12 +3,17 @@ import { inject } from "tsyringe";
 import { Balances } from "./balances";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { TokenId } from "@proto-kit/library";
-import { Bool, Field, UInt64 as o1ui64 } from "o1js";
+import { Bool, Field, UInt64 as o1ui64, Provable } from "o1js";
 import { LimitOrder } from "../utils/limit-order";
 import { UserCaptivedTokenKey } from "../utils/user-captived-token-key";
 
 interface OrderBookConfig {}
 
+/**
+ * OrderBook module
+ * @value orderNonce - The nonce of the last order
+ * @value orders - The orders in the order book
+ */
 @runtimeModule()
 export class OrderBook extends RuntimeModule<OrderBookConfig> {
     @state() public orderNonce = State.from<Field>(Field);
@@ -18,6 +23,14 @@ export class OrderBook extends RuntimeModule<OrderBookConfig> {
         super();
     }
 
+    /**
+     * Creates a limit order
+     * @param tokenIn TokenId of the token to be traded
+     * @param tokenOut TokenId of the token to receive
+     * @param tokenInAmount amount of tokenIn
+     * @param tokenOutAmount amount of tokenOut
+     * @param expiration timeout of the order in blocks
+     */
     @runtimeMethod()
     public async createLimitOrder(
         tokenIn: TokenId,
@@ -64,6 +77,11 @@ export class OrderBook extends RuntimeModule<OrderBookConfig> {
         );
     }
 
+    /**
+     * Cancels a limit order
+     * @param orderId id of the order to cancel
+     * only the owner can cancel the order
+     */
     @runtimeMethod()
     public async cancelLimitOrder(orderId: Field) {
         const sender = this.transaction.sender.value;
