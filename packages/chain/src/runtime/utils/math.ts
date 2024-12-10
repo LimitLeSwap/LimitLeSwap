@@ -14,6 +14,12 @@ function sqrtBigInt(value: bigint): bigint {
     return x0;
 }
 
+function minBigInt(a: bigint, b: bigint): bigint {
+    return a < b ? a : b;
+}
+
+const MINIMUM_LIQUIDITY = 1000n;
+
 export function calculateInitialLPSupply(tokenAmountA: Balance, tokenAmountB: Balance): Balance {
     const initialLPSupply = Provable.witness(Balance, () => {
         return Balance.from(sqrtBigInt(tokenAmountA.toBigInt() * tokenAmountB.toBigInt()));
@@ -24,5 +30,27 @@ export function calculateInitialLPSupply(tokenAmountA: Balance, tokenAmountB: Ba
         "Initial LP supply is too large"
     );
 
-    return initialLPSupply.sub(1000n);
+    return initialLPSupply.sub(MINIMUM_LIQUIDITY);
+}
+
+export function calculateLPShare(
+    tokenAmountA: Balance,
+    tokenAmountB: Balance,
+    reserveA: Balance,
+    reserveB: Balance,
+    lpSupply: Balance
+): Balance {
+    const lpShare = Provable.witness(Balance, () => {
+        return Balance.from(
+            minBigInt(
+                (tokenAmountA.toBigInt() * lpSupply.toBigInt()) / reserveA.toBigInt(),
+                (tokenAmountB.toBigInt() * lpSupply.toBigInt()) / reserveB.toBigInt()
+            )
+        );
+    });
+
+    assert(lpShare.greaterThan(Balance.from(0)), "Insufficient LP share minted");
+    // Todo add more assertions
+
+    return lpShare;
 }

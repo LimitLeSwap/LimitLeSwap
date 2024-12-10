@@ -250,6 +250,9 @@ importers:
       graphql-scalars:
         specifier: ^1.22.4
         version: 1.24.0(graphql@16.9.0)
+      mina-fungible-token:
+        specifier: ^1.0.0
+        version: 1.0.0(o1js@1.6.0)
       o1js:
         specifier: 1.6.0
         version: 1.6.0
@@ -1165,7 +1168,7 @@ packages:
   '@proto-kit/common@file:../framework/packages/common':
     resolution: {directory: ../framework/packages/common, type: directory}
     peerDependencies:
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/deployment@file:../framework/packages/deployment':
@@ -1203,7 +1206,7 @@ packages:
       '@proto-kit/module': '*'
       '@proto-kit/protocol': '*'
       '@proto-kit/sequencer': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/module@file:../framework/packages/module':
@@ -1211,7 +1214,7 @@ packages:
     peerDependencies:
       '@proto-kit/common': '*'
       '@proto-kit/protocol': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/persistance@file:../framework/packages/persistance':
@@ -1244,7 +1247,7 @@ packages:
     resolution: {directory: ../framework/packages/protocol, type: directory}
     peerDependencies:
       '@proto-kit/common': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       ts-pattern: ^4.3.0
       tsyringe: ^4.7.0
 
@@ -1256,7 +1259,7 @@ packages:
       '@proto-kit/module': '*'
       '@proto-kit/protocol': '*'
       '@proto-kit/sequencer': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/sequencer@file:../framework/packages/sequencer':
@@ -1265,7 +1268,7 @@ packages:
       '@proto-kit/common': '*'
       '@proto-kit/module': '*'
       '@proto-kit/protocol': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@radix-ui/number@1.1.0':
@@ -4216,6 +4219,11 @@ packages:
   min-indent@1.0.1:
     resolution: {integrity: sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==}
     engines: {node: '>=4'}
+
+  mina-fungible-token@1.0.0:
+    resolution: {integrity: sha512-2LfoBIuwQO5qk3H1JjRLKsCdZsSu+B/lannjMBdujdoHnoj6aWEcLQOY4jAz4BnhVCgAmJ/uUrTqVZ86J63iTg==}
+    peerDependencies:
+      o1js: ^1.6.0
 
   minimalistic-assert@1.0.1:
     resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}
@@ -7171,6 +7179,7 @@ snapshots:
       '@proto-kit/protocol': file:../framework/packages/protocol(@proto-kit/common@file:../framework/packages/common(o1js@1.6.0)(tsyringe@4.8.0))(o1js@1.6.0)(ts-pattern@4.3.0)(tsyringe@4.8.0)
       compute-gcd: 1.2.1
       lodash: 4.17.21
+      mina-fungible-token: 1.0.0(o1js@1.6.0)
       o1js: 1.6.0
       reflect-metadata: 0.1.14
       ts-pattern: 4.3.0
@@ -9243,7 +9252,7 @@ snapshots:
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.7.0(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint@8.57.1)
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.2(eslint@8.57.1)
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@8.57.1)
@@ -9287,7 +9296,7 @@ snapshots:
       is-glob: 4.0.3
       stable-hash: 0.0.4
     optionalDependencies:
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -9364,7 +9373,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-plugin-import@2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.8
@@ -10866,6 +10875,10 @@ snapshots:
   mimic-fn@2.1.0: {}
 
   min-indent@1.0.1: {}
+
+  mina-fungible-token@1.0.0(o1js@1.6.0):
+    dependencies:
+      o1js: 1.6.0
 
   minimalistic-assert@1.0.1: {}
 

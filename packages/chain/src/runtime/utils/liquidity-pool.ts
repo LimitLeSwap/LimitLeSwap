@@ -1,4 +1,4 @@
-import { Balance, TokenId } from "@proto-kit/library";
+import { Balance, TokenId, UInt64 } from "@proto-kit/library";
 import { Field, Poseidon, PublicKey, Struct } from "o1js";
 
 export class LiquidityPool extends Struct({
@@ -6,14 +6,14 @@ export class LiquidityPool extends Struct({
     tokenB: TokenId,
     tokenAmountA: Balance,
     tokenAmountB: Balance,
-    fee: Field,
+    fee: UInt64,
 }) {
     public static from(
         tokenA: TokenId,
         tokenB: TokenId,
         tokenAmountA: Balance,
         tokenAmountB: Balance,
-        fee: Field
+        fee: UInt64
     ) {
         return new LiquidityPool({
             tokenA,
