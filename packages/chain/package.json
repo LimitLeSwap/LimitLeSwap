@@ -42,17 +42,17 @@
         "init-order": "node --experimental-specifier-resolution=node --experimental-vm-modules --experimental-wasm-modules --experimental-wasm-threads dist/initiate/init.js"
     },
     "peerDependencies": {
-        "@proto-kit/api": "*",
-        "@proto-kit/common": "*",
-        "@proto-kit/deployment": "*",
-        "@proto-kit/library": "*",
-        "@proto-kit/module": "*",
-        "@proto-kit/persistance": "*",
-        "@proto-kit/protocol": "*",
-        "@proto-kit/sdk": "*",
-        "@proto-kit/sequencer": "*",
-        "@proto-kit/indexer": "*",
-        "@proto-kit/processor": "*",
+        "@proto-kit/api": "file:/../../../framework/packages/api",
+        "@proto-kit/common": "file:/../../../framework/packages/common",
+        "@proto-kit/deployment": "file:/../../../framework/packages/deployment",
+        "@proto-kit/library": "file:/../../../framework/packages/library",
+        "@proto-kit/module": "file:/../../../framework/packages/module",
+        "@proto-kit/persistance": "file:/../../../framework/packages/persistance",
+        "@proto-kit/protocol": "file:/../../../framework/packages/protocol",
+        "@proto-kit/sdk": "file:/../../../framework/packages/sdk",
+        "@proto-kit/sequencer": "file:/../../../framework/packages/sequencer",
+        "@proto-kit/indexer": "file:/../../../framework/packages/indexer",
+        "@proto-kit/processor": "file:/../../../framework/packages/processor",
         "o1js": "1.6.0",
         "tsyringe": "^4.7.0"
     },
@@ -86,7 +86,7 @@
         "yargs": "^17.7.2",
         "typegraphql-prisma": "^0.28",
         "graphql": "^16.8.1",
-        "@prisma/client": "5.18"
+        "@prisma/client": "5.18.0"
     },
     "dependencies": {
         "reflect-metadata": "^0.1.13",
