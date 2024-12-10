@@ -19,7 +19,7 @@ import { Fuel } from "lucide-react";
 export default function Faucet() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connectWallet;
+  const onConnectWallet = walletStore.connect;
   const drip = useFaucet();
   const [token, setToken] = useState("MINA");
   const [loading, setLoading] = useState(true);

@@ -1,11 +1,11 @@
-// @ts-nocheck
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import { Client, useClientStore } from "./client";
+import { useClientStore } from "./client";
 import { useWalletStore } from "./wallet";
 import { useChainStore } from "./chain";
-import { useEffect } from "react";
-import { Bool, Field, PublicKey } from "o1js";
+import { useEffect, useRef } from "react";
+import { Field, PublicKey } from "o1js";
+import isEqual from "lodash.isequal";
 
 export interface LimitOrder {
   orderId: number;
@@ -21,7 +21,6 @@ export interface LimitOrder {
 export interface LimitState {
   limitOrders: LimitOrder[];
   setLimitOrders: (limitOrders: LimitOrder[]) => void;
-  loadOrders: (client: Client) => Promise<void>;
 }
 
 export const useLimitStore = create<LimitState, [["zustand/immer", never]]>(
@@ -29,33 +28,6 @@ export const useLimitStore = create<LimitState, [["zustand/immer", never]]>(
     limitOrders: [],
     setLimitOrders: (_limitOrders: LimitOrder[]) =>
       set({ limitOrders: _limitOrders }),
-
-    async loadOrders(client: Client) {
-      let orderCount = await client.query.runtime.LimitOrders.orderNonce.get();
-      orderCount = orderCount.value[1][1].toString();
-
-      const limitOrders: LimitOrder[] = [];
-
-      for (let i = 0; i < Number(orderCount); i++) {
-        const order = await client.query.runtime.LimitOrders.orders.get(
-          Field.from(i),
-        );
-
-        limitOrders.push({
-          orderId: i,
-          expiration: Field.fromJSON(order.expiration).toString(),
-          isActive: Bool.fromJSON(order.isActive).toBoolean(),
-          tokenIn: Field.fromJSON(order.tokenIn).toString(),
-          tokenInAmount: Field.fromJSON(order.tokenInAmount).toString(),
-          tokenOut: Field.fromJSON(order.tokenOut).toString(),
-          tokenOutAmount: Field.fromJSON(order.tokenOutAmount).toString(),
-          owner: PublicKey.fromJSON(order.owner.toJSON()),
-        });
-      }
-
-      console.log(limitOrders);
-      set({ limitOrders });
-    },
   })),
 );
 
@@ -65,9 +37,64 @@ export const useObserveOrders = () => {
   const limitStore = useLimitStore();
   const wallet = useWalletStore();
 
-  useEffect(() => {
-    if (!client.client || !wallet.wallet) return;
+  const previousLimitOrdersRef = useRef<LimitOrder[]>([]);
 
-    limitStore.loadOrders(client.client);
+  useEffect(() => {
+    if (!client || !client.client || !wallet.wallet) return;
+
+    (async () => {
+      let orderCount =
+        await client.client!.query.runtime.OrderBook.orderNonce.get();
+      orderCount = orderCount.value[1][1].toString();
+
+      const limitOrders: LimitOrder[] = [];
+
+      for (let i = 0; i < Number(orderCount); i++) {
+        const order = await client.client!.query.runtime.OrderBook.orders.get(
+          Field.from(i),
+        );
+
+        if (!order) {
+          continue;
+        }
+
+        // limitOrders.push({
+        //   orderId: i,
+        //   expiration: Field.fromJSON(order.expiration).toString(),
+        //   isActive: Bool.fromJSON(order.isActive).toBoolean(),
+        //   tokenIn: Field.fromJSON(order.tokenIn).toString(),
+        //   tokenInAmount: Field.fromJSON(order.tokenInAmount).toString(),
+        //   tokenOut: Field.fromJSON(order.tokenOut).toString(),
+        //   tokenOutAmount: Field.fromJSON(order.tokenOutAmount).toString(),
+        //   owner: PublicKey.fromJSON(order.owner.toJSON()),
+        // });
+
+        limitOrders.push({
+          orderId: i,
+          expiration: order.expiration.toString(),
+          isActive: order.isActive.toBoolean(),
+          tokenIn: order.tokenIn.toString(),
+          tokenInAmount: order.tokenInAmount.toString(),
+          tokenOut: order.tokenOut.toString(),
+          tokenOutAmount: order.tokenOutAmount.toString(),
+          owner: order.owner,
+        });
+
+        if (!previousLimitOrdersRef.current) {
+          limitStore.setLimitOrders(limitOrders);
+          previousLimitOrdersRef.current = limitOrders;
+        } else if (
+          !previousLimitOrdersRef.current ||
+          !previousLimitOrdersRef.current.length ||
+          !limitOrders.length ||
+          !previousLimitOrdersRef.current.every((order, index) =>
+            isEqual(order, limitOrders[index]),
+          )
+        ) {
+          limitStore.setLimitOrders(limitOrders);
+          previousLimitOrdersRef.current = limitOrders;
+        }
+      }
+    })();
   }, [client.client, chain.block?.height, wallet.wallet]);
 };

@@ -4,7 +4,8 @@ import { useWalletStore } from "@/lib/stores/wallet";
 import { tokens } from "@/lib/tokens";
 import { BalancesKey, TokenId } from "@proto-kit/library";
 import { Field, PublicKey } from "o1js";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import isEqual from "lodash.isequal";
 
 export interface ChainProps {
   height?: string;
@@ -16,6 +17,10 @@ export function Chain({ height }: ChainProps) {
   const walletStore = useWalletStore();
   const { wallet } = walletStore;
 
+  const previousTokenListRef = useRef<Token[]>([]);
+  const previousPoolListRef = useRef<Pool[]>([]);
+  const previousPositionListRef = useRef<Position[]>([]);
+
   useEffect(() => {
     if (!client.client) return;
     (async () => {
@@ -26,8 +31,6 @@ export function Chain({ height }: ChainProps) {
           Field.from(i),
         );
 
-        // console.log(tokenId?.value[1][1].toString());
-
         if (!tokenId) {
           continue;
         }
@@ -37,12 +40,13 @@ export function Chain({ height }: ChainProps) {
           //@ts-ignore
           tokenId: tokenId?.value[1][1].toString(),
         };
-        // console.log(token);
         tokenList.push(token);
       }
 
-      // console.log(tokenList);
-      poolStore.setTokenList(tokenList);
+      if (!isEqual(previousTokenListRef.current, tokenList)) {
+        poolStore.setTokenList(tokenList);
+        previousTokenListRef.current = tokenList;
+      }
 
       const poolCount =
         await client.client!.query.runtime.PoolModule.poolCount.get();
@@ -51,7 +55,6 @@ export function Chain({ height }: ChainProps) {
       const positionList: Position[] = [];
 
       if (poolCount) {
-        // console.log(Number(poolCount.toString()));
         for (let i = 0; i < Number(poolCount.toString()); i++) {
           const poolId =
             await client.client!.query.runtime.PoolModule.poolIds.get(
@@ -65,7 +68,6 @@ export function Chain({ height }: ChainProps) {
           if (!pool) {
             return;
           }
-          // console.log(pool);
           const token0Id = pool.tokenA.toString();
           const token1Id = pool.tokenB.toString();
 
@@ -77,10 +79,6 @@ export function Chain({ height }: ChainProps) {
               TokenId.from(poolId.toString()),
             );
 
-          // console.log(BigInt(token0Id));
-          // console.log(BigInt(token1Id));
-          // console.log(BigInt(token0Id) < BigInt(token1Id));
-
           if (BigInt(token0Id) < BigInt(token1Id)) {
             const pool: Pool = {
               poolId: poolId.toString(),
@@ -91,23 +89,16 @@ export function Chain({ height }: ChainProps) {
               lpTokenSupply: lpTokenSupply?.toString() ?? "0",
             };
 
-            // console.log("31", pool);
             poolList.push(pool);
           } else {
             const smallerTokenId = token1Id;
-            // console.log("smallerTokenId", smallerTokenId);
             const smallerToken = tokenList.find(
               (token) => token.tokenId === token1Id,
             );
-            // console.log("smallerToken", smallerToken);
-            // console.log("smallerTokenAmount", token1Amount);
             const biggerTokenId = token0Id;
-            // console.log("biggerTokenId", biggerTokenId);
             const biggerToken = tokenList.find(
               (token) => token.tokenId === token0Id,
             );
-            // console.log("biggerToken", biggerToken);
-            // console.log("biggerTokenAmount", token0Amount);
             const pool: Pool = {
               poolId: poolId.toString(),
               token0: tokenList.find((token) => token.tokenId === token1Id)!,
@@ -117,7 +108,6 @@ export function Chain({ height }: ChainProps) {
               lpTokenSupply: lpTokenSupply?.toString() ?? "0",
             };
 
-            // console.log("52", pool);
             poolList.push(pool);
           }
 
@@ -152,8 +142,18 @@ export function Chain({ height }: ChainProps) {
           }
         }
 
-        poolStore.setPoolList(poolList);
-        poolStore.setPositionList(positionList);
+        // poolStore.setPoolList(poolList);
+        // poolStore.setPositionList(positionList);
+
+        if (!isEqual(previousPoolListRef.current, poolList)) {
+          poolStore.setPoolList(poolList);
+          previousPoolListRef.current = poolList;
+        }
+
+        if (!isEqual(previousPositionListRef.current, positionList)) {
+          poolStore.setPositionList(positionList);
+          previousPositionListRef.current = positionList;
+        }
       }
     })();
   }, [height, client.client]);

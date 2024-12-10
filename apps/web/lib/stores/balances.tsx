@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Client, useClientStore } from "./client";
 import { immer } from "zustand/middleware/immer";
 import { PendingTransaction, UnsignedTransaction } from "@proto-kit/sequencer";
-import { Balance, BalancesKey, TokenId } from "@proto-kit/library";
+import { Balance, BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
 import { PublicKey } from "o1js";
 import { useCallback, useEffect } from "react";
 import { useChainStore } from "./chain";
@@ -65,15 +65,19 @@ export const useBalancesStore = create<
       const balances = client.runtime.resolve("Balances");
       const sender = PublicKey.fromBase58(address);
       console.log("Faucet", tokenId.toString());
-      console.log(tokenId);
 
       const tx = await client.transaction(sender, async () => {
         const amount = BigInt(1000) * DECIMALS;
-        await balances.mintToken(tokenId, sender, Balance.from(amount));
+        await balances.mintToken(
+          tokenId,
+          sender,
+          Balance.from(amount.toString()),
+        );
       });
 
       await tx.sign();
       await tx.send();
+      console.log("Faucet tx", tx.transaction?.nonce.toBigInt());
 
       isPendingTransaction(tx.transaction);
       return tx.transaction;
