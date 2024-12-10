@@ -22,7 +22,7 @@ import { DECIMALS } from "@/lib/constants";
 export default function CreatePool() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connectWallet;
+  const onConnectWallet = walletStore.connect;
   const [state, setState] = useState({
     tokenAmountA: 0,
     tokenAmountB: 0,

@@ -24,7 +24,7 @@ import { DECIMALS } from "@/lib/constants";
 export default function LimitOrder() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connectWallet;
+  const onConnectWallet = walletStore.connect;
   const client = useClientStore();
   const { toast } = useToast();
   const poolStore = usePoolStore();
@@ -84,7 +84,7 @@ export default function LimitOrder() {
     });
 
     if (client.client && wallet && sellToken && buyToken) {
-      const limitOrders = client.client.runtime.resolve("LimitOrders");
+      const orderbook = client.client.runtime.resolve("OrderBook");
       const tokenIn = TokenId.from(sellToken.tokenId);
       const tokenOut = TokenId.from(buyToken.tokenId);
       const amountIn = Field.from(BigInt(sellAmount * Number(DECIMALS)));
@@ -93,7 +93,7 @@ export default function LimitOrder() {
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),
         async () => {
-          await limitOrders.createLimitOrder(
+          await orderbook.createLimitOrder(
             tokenIn,
             tokenOut,
             amountIn,

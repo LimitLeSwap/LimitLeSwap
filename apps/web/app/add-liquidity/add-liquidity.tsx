@@ -174,7 +174,7 @@ export default function AddLiq() {
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),
         async () => {
-          await poolModule.addLiquidityToEmpty(
+          await poolModule.addLiquidityToEmptyPool(
             TokenIdA,
             TokenIdB,
             TokenAmountA,
