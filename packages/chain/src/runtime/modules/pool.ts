@@ -7,44 +7,17 @@ import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
 import { OrderBook } from "./orderbook";
 import { OrderBundle } from "../utils/limit-order";
-
-export class Pool extends Struct({
-    tokenA: TokenId,
-    tokenB: TokenId,
-    tokenAmountA: Balance,
-    tokenAmountB: Balance,
-    // fee: UInt64,
-}) {
-    public static from(
-        tokenA: TokenId,
-        tokenB: TokenId,
-        tokenAmountA: Balance,
-        tokenAmountB: Balance
-        // fee: UInt64
-    ) {
-        return new Pool({
-            tokenA,
-            tokenB,
-            tokenAmountA,
-            tokenAmountB,
-            // fee,
-        });
-    }
-
-    public static calculatePoolId(tokenA: TokenId, tokenB: TokenId) {
-        return Poseidon.hash([tokenA, tokenB]);
-    }
-
-    public getPoolId() {
-        return Poseidon.hash([this.tokenA, this.tokenB]);
-    }
-}
+import { LiquidityPool } from "../utils/liquidity-pool";
+import { PoolId } from "../utils/pool-id";
+import { calculateInitialLPSupply } from "../utils/math";
 
 interface PoolModuleConfig {}
 
+const FEE_TIERS = [Field.from(1), Field.from(5), Field.from(30), Field.from(100)];
+
 @runtimeModule()
 export class PoolModule extends RuntimeModule<PoolModuleConfig> {
-    @state() public pools = StateMap.from<Field, Pool>(Field, Pool);
+    @state() public pools = StateMap.from<Field, LiquidityPool>(Field, LiquidityPool);
     @state() public poolIds = StateMap.from<Field, Field>(Field, Field);
     @state() public poolCount = State.from(Field);
     public constructor(
@@ -60,35 +33,43 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         tokenB: TokenId,
         tokenAmountA: Balance,
         tokenAmountB: Balance,
-        requester: PublicKey,
-        lp_requested: Balance
+        sender: PublicKey,
+        feeTier: UInt64
     ) {
-        // deterministic hash needed to generate pool id
-        const smallerTokenId = Provable.if(tokenA.lessThan(tokenB), tokenA, tokenB);
-        const largerTokenId = Provable.if(tokenA.lessThan(tokenB), tokenB, tokenA);
-        const poolId = Poseidon.hash([smallerTokenId, largerTokenId]);
-        const poolAccount = PublicKey.fromGroup(
-            Poseidon.hashToGroup([poolId, smallerTokenId, largerTokenId])
-        );
-        const currentPool = await this.pools.get(poolId);
-        assert(currentPool.isSome.not(), "Pool already exists");
         assert(tokenA.equals(tokenB).not(), "Tokens must be different");
-        const pool = Pool.from(tokenA, tokenB, tokenAmountA, tokenAmountB);
-        const requesterBalanceA = await this.balances.getBalance(tokenA, requester);
-        assert(requesterBalanceA.greaterThanOrEqual(tokenAmountA));
-        const requesterBalanceB = await this.balances.getBalance(tokenB, requester);
-        assert(requesterBalanceB.greaterThanOrEqual(tokenAmountB));
-        await this.balances.transfer(tokenA, requester, poolAccount, tokenAmountA);
-        await this.balances.transfer(tokenB, requester, poolAccount, tokenAmountB);
-        // what if overflow?
-        const lp_amount_threshold = tokenAmountA.mul(tokenAmountB);
-        const requested_square = lp_requested.mul(lp_requested);
-        assert(lp_amount_threshold.greaterThanOrEqual(requested_square));
-        await this.balances.mintToken(poolId, this.transaction.sender.value, lp_requested);
-        await this.pools.set(poolId, pool);
+        assert(feeTier.lessThan(UInt64.from(FEE_TIERS.length)), "Invalid fee tier");
+
+        const poolId = PoolId.from(tokenA, tokenB);
+        const poolIdHash = poolId.getPoolIdHash();
+        const poolAccount = poolId.getPoolAccount();
+
+        const currentPool = await this.pools.get(poolIdHash);
+
+        assert(currentPool.isSome.not(), "Pool already exists");
+
+        let fee = FEE_TIERS[0];
+        for (let i = 1; i < FEE_TIERS.length; i++) {
+            fee = Provable.if(feeTier.equals(UInt64.from(i)), FEE_TIERS[i], fee);
+        }
+
+        const pool = LiquidityPool.from(tokenA, tokenB, tokenAmountA, tokenAmountB, fee);
+
+        const senderBalanceA = await this.balances.getBalance(tokenA, sender);
+        assert(senderBalanceA.greaterThanOrEqual(tokenAmountA));
+
+        const senderBalanceB = await this.balances.getBalance(tokenB, sender);
+        assert(senderBalanceB.greaterThanOrEqual(tokenAmountB));
+
+        await this.balances.transfer(tokenA, sender, poolAccount, tokenAmountA);
+        await this.balances.transfer(tokenB, sender, poolAccount, tokenAmountB);
+
+        const initialLPSupply = calculateInitialLPSupply(tokenAmountA, tokenAmountB);
+
+        await this.balances.mintToken(poolIdHash, this.transaction.sender.value, initialLPSupply);
+        await this.pools.set(poolIdHash, pool);
 
         const currentCount = await this.poolCount.get();
-        await this.poolIds.set(currentCount.value, poolId);
+        await this.poolIds.set(currentCount.value, poolIdHash);
         await this.poolCount.set(Field.from(currentCount.value.add(1)));
     }
 
@@ -125,7 +106,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         const requested_square = lp_requested.mul(lp_requested);
         assert(lp_amount_threshold.greaterThanOrEqual(requested_square));
         await this.balances.mintToken(poolId, this.transaction.sender.value, lp_requested);
-        const updatedPool = Pool.from(tokenA, tokenB, tokenAmountA, tokenAmountB);
+        const updatedPool = LiquidityPool.from(tokenA, tokenB, tokenAmountA, tokenAmountB);
         await this.pools.set(poolId, updatedPool);
     }
 
@@ -184,7 +165,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         );
         await this.balances.mintToken(poolId, this.transaction.sender.value, lpRequested);
 
-        const updatedPool = Pool.from(
+        const updatedPool = LiquidityPool.from(
             tokenA,
             tokenB,
             reserveA.add(tokenAmountA),
@@ -240,7 +221,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
             requestedB
         );
 
-        const updatedPool = Pool.from(
+        const updatedPool = LiquidityPool.from(
             tokenA,
             tokenB,
             reserveA.sub(requestedA),
@@ -326,7 +307,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         reserveIn = await this.balances.getBalance(tokenIn, poolAccount);
         reserveOut = await this.balances.getBalance(tokenOut, poolAccount);
 
-        const adjustedPool = Pool.from(tokenIn, tokenOut, reserveIn, reserveOut);
+        const adjustedPool = LiquidityPool.from(tokenIn, tokenOut, reserveIn, reserveOut);
         await this.pools.set(poolId, adjustedPool);
     }
 

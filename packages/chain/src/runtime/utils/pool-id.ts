@@ -1,6 +1,6 @@
 import { TokenId } from "@proto-kit/library";
 import { assert } from "@proto-kit/protocol";
-import { Field, Poseidon, Provable, Struct } from "o1js";
+import { Field, Poseidon, Provable, PublicKey, Struct } from "o1js";
 
 /**
  * PoolId is a unique identifier for a pool.
@@ -32,7 +32,12 @@ export class PoolId extends Struct({
      * Returns the pool id for the pool object.
      * @returns The pool id.
      */
-    public getPoolId(): Field {
+    public getPoolIdHash(): Field {
         return Poseidon.hash([this.token0, this.token1]);
+    }
+
+    public getPoolAccount(): PublicKey {
+        const poolId = this.getPoolIdHash();
+        return PublicKey.fromGroup(Poseidon.hashToGroup([poolId, this.token0, this.token1]));
     }
 }
