@@ -1,4 +1,4 @@
-import { Balance, VanillaRuntimeModules } from "@proto-kit/library";
+import { VanillaRuntimeModules } from "@proto-kit/library";
 import { ModulesConfig } from "@proto-kit/common";
 
 import { Balances } from "./modules/balances";

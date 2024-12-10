@@ -33,9 +33,7 @@ const startClient = async () => {
                 await balances.createToken(tokenId);
             });
 
-            console.log("1");
             tx.transaction!.nonce = UInt64.from(i);
-            console.log("2");
             tx.transaction = tx.transaction?.sign(publisherKey);
             await tx.send();
         } catch (e) {
