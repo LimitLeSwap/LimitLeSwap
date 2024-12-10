@@ -1,6 +1,6 @@
 import { runtimeMethod, runtimeModule, state } from "@proto-kit/module";
 import { assert, State, StateMap } from "@proto-kit/protocol";
-import { Balance, Balances as BaseBalances, TokenId } from "@proto-kit/library";
+import { Balance, Balances as BaseBalances, TokenId, UInt64 } from "@proto-kit/library";
 import { Field, PublicKey } from "o1js";
 import { UserCaptivedTokenKey } from "../utils/user-captived-token-key";
 
@@ -11,10 +11,9 @@ export class Balances extends BaseBalances<BalancesConfig> {
     @state() public tokens = StateMap.from<Field, TokenId>(Field, TokenId);
     @state() public tokenCount = State.from(Field);
     @state() public circulatingSupply = StateMap.from<TokenId, Balance>(TokenId, Balance);
-    // Todo: change Field to Balance
-    @state() public userCaptivedAmount = StateMap.from<UserCaptivedTokenKey, Field>(
+    @state() public userCaptivedAmount = StateMap.from<UserCaptivedTokenKey, Balance>(
         UserCaptivedTokenKey,
-        Field
+        Balance
     );
 
     @runtimeMethod()
@@ -60,8 +59,10 @@ export class Balances extends BaseBalances<BalancesConfig> {
         const senderCaptivedAmount = await this.userCaptivedAmount.get(
             UserCaptivedTokenKey.from(tokenId, from)
         );
-        const senderFreeBalance = senderBalance.value.sub(senderCaptivedAmount.value);
-        assert(senderFreeBalance.greaterThanOrEqual(amount.value), "Insufficient balance");
+        const senderFreeBalance = senderBalance.sub(
+            UInt64.Safe.fromField(senderCaptivedAmount.value.value)
+        );
+        assert(senderFreeBalance.greaterThanOrEqual(amount), "Insufficient balance");
 
         assert(from.equals(to).not(), "Cannot transfer to self");
 

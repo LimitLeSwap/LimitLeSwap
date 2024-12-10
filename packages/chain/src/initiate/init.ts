@@ -1,5 +1,5 @@
 import { Field, PrivateKey, UInt64 } from "o1js";
-import { UInt64 as PUInt64, TokenId } from "@proto-kit/library";
+import { Balance, UInt64 as PUInt64, TokenId } from "@proto-kit/library";
 import { client as appChain } from "../environments/client.config";
 import { InMemorySigner } from "@proto-kit/sdk";
 import { Balances } from "../runtime/modules/balances";
@@ -44,8 +44,8 @@ const startClient = async () => {
     const orderbook = appChain.runtime.resolve("OrderBook");
     const tokenIn = await balances.tokens.get(Field.from(0));
     const tokenOut = await balances.tokens.get(Field.from(1));
-    const amountIn = Field.from(100);
-    const amountOut = Field.from(100);
+    const amountIn = Balance.from(100);
+    const amountOut = Balance.from(100);
     const expiration = UInt64.from(1);
 
     let tx = await appChain.transaction(publisher, async () => {

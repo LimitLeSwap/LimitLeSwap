@@ -78,6 +78,7 @@ export const useBalancesStore = create<
       await tx.sign();
       await tx.send();
       console.log("Faucet tx", tx.transaction?.nonce.toBigInt());
+      console.log("Hash", tx.transaction?.hash().toString());
 
       isPendingTransaction(tx.transaction);
       return tx.transaction;

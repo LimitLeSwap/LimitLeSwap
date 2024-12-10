@@ -14,8 +14,8 @@ import { useClientStore } from "@/lib/stores/client";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { ArrowUpDown } from "lucide-react";
-import { Field, PublicKey, UInt64 } from "o1js";
-import { TokenId } from "@proto-kit/library";
+import { PublicKey, UInt64 } from "o1js";
+import { Balance, TokenId } from "@proto-kit/library";
 import React, { useEffect, useState } from "react";
 import OrderBook from "@/components/orderBook";
 import MyOrders from "@/components/myOrders";
@@ -87,8 +87,8 @@ export default function LimitOrder() {
       const orderbook = client.client.runtime.resolve("OrderBook");
       const tokenIn = TokenId.from(sellToken.tokenId);
       const tokenOut = TokenId.from(buyToken.tokenId);
-      const amountIn = Field.from(BigInt(sellAmount * Number(DECIMALS)));
-      const amountOut = Field.from(BigInt(buyAmount * Number(DECIMALS)));
+      const amountIn = Balance.from(BigInt(sellAmount * Number(DECIMALS)));
+      const amountOut = Balance.from(BigInt(buyAmount * Number(DECIMALS)));
       const expiration = UInt64.from(validForDays * 17280);
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),

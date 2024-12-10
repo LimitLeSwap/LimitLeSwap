@@ -360,22 +360,16 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
 
             Provable.asProver(() => {
                 console.log("orderTokenOutAmount", order.tokenOutAmount.toString());
-                console.log(
-                    "orderTokenOutAmount",
-                    UInt64.Safe.fromField(order.tokenOutAmount).toString()
-                );
+                console.log("orderTokenOutAmount", order.tokenOutAmount.toString());
                 console.log("orderTokenInAmount", order.tokenInAmount.toString());
-                console.log(
-                    "orderTokenInAmount",
-                    UInt64.Safe.fromField(order.tokenInAmount).toString()
-                );
+                console.log("orderTokenInAmount", order.tokenInAmount.toString());
             });
 
             const amountToFill = UInt64.Safe.fromField(
-                Provable.if(isActive, order.tokenOutAmount, Field.from(0))
+                Provable.if(isActive, order.tokenOutAmount.value, Field.from(0))
             );
             const amountToTake = UInt64.Safe.fromField(
-                Provable.if(isActive, order.tokenInAmount, Field.from(0))
+                Provable.if(isActive, order.tokenInAmount.value, Field.from(0))
             );
             remainingAmountIn = Balance.from(remainingAmountIn.sub(amountToFill));
             limitOrderFills = Balance.from(limitOrderFills.add(amountToTake));

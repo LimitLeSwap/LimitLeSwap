@@ -2,7 +2,7 @@ import { runtimeMethod, RuntimeModule, runtimeModule, state } from "@proto-kit/m
 import { inject } from "tsyringe";
 import { Balances } from "./balances";
 import { assert, State, StateMap } from "@proto-kit/protocol";
-import { TokenId } from "@proto-kit/library";
+import { Balance, TokenId, UInt64 } from "@proto-kit/library";
 import { Bool, Field, UInt64 as o1ui64, Provable } from "o1js";
 import { LimitOrder } from "../utils/limit-order";
 import { UserCaptivedTokenKey } from "../utils/user-captived-token-key";
@@ -35,8 +35,8 @@ export class OrderBook extends RuntimeModule<OrderBookConfig> {
     public async createLimitOrder(
         tokenIn: TokenId,
         tokenOut: TokenId,
-        tokenInAmount: Field,
-        tokenOutAmount: Field,
+        tokenInAmount: Balance,
+        tokenOutAmount: Balance,
         expiration: o1ui64
     ): Promise<void> {
         const sender = this.transaction.sender.value;
@@ -44,11 +44,11 @@ export class OrderBook extends RuntimeModule<OrderBookConfig> {
         const captivedAmount = await this.balances.userCaptivedAmount.get(
             UserCaptivedTokenKey.from(tokenIn, sender)
         );
-        const senderAvailableBalance = senderBalance.value.sub(captivedAmount.value);
+        const senderAvailableBalance = senderBalance.sub(captivedAmount.value);
         const currentBlock = this.network.block.height;
         const expirationBlock = expiration.add(currentBlock);
 
-        assert(tokenInAmount.greaterThan(0), "Amount must be greater than 0");
+        assert(tokenInAmount.greaterThan(UInt64.from(0)), "Amount must be greater than 0");
 
         assert(
             senderAvailableBalance.greaterThanOrEqual(tokenInAmount),

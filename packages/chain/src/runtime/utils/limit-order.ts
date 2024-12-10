@@ -1,4 +1,4 @@
-import { TokenId } from "@proto-kit/library";
+import { Balance, TokenId } from "@proto-kit/library";
 import { Bool, Field, Provable, PublicKey, Struct, UInt64 as o1ui64 } from "o1js";
 
 export const MAX_ORDER_SIZE = 10;
@@ -27,8 +27,8 @@ export class OrderBundle extends Struct({
 export class LimitOrder extends Struct({
     tokenIn: TokenId,
     tokenOut: TokenId,
-    tokenInAmount: Field,
-    tokenOutAmount: Field,
+    tokenInAmount: Balance,
+    tokenOutAmount: Balance,
     owner: PublicKey,
     expiration: o1ui64,
     isActive: Bool,
@@ -47,8 +47,8 @@ export class LimitOrder extends Struct({
     public static from(
         tokenIn: TokenId,
         tokenOut: TokenId,
-        tokenInAmount: Field,
-        tokenOutAmount: Field,
+        tokenInAmount: Balance,
+        tokenOutAmount: Balance,
         owner: PublicKey,
         expiration: o1ui64,
         isActive: Bool = Bool(true)
