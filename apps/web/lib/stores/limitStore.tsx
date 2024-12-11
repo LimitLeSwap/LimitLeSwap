@@ -45,6 +45,15 @@ export const useObserveOrders = () => {
     (async () => {
       let orderCount =
         await client.client!.query.runtime.OrderBook.orderNonce.get();
+
+      if (
+        !orderCount ||
+        !orderCount.value ||
+        !orderCount.value[1] ||
+        !orderCount.value[1][1]
+      ) {
+        return;
+      }
       orderCount = orderCount.value[1][1].toString();
 
       const limitOrders: LimitOrder[] = [];

@@ -22,7 +22,6 @@ import { useToast } from "@/components/ui/use-toast";
 export default function Faucet() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  // const drip = useFaucet();
   const [token, setToken] = useState("MINA");
   const [loading, setLoading] = useState(true);
   const poolStore = usePoolStore();
@@ -134,7 +133,7 @@ export default function Faucet() {
               type="submit"
               className=" w-full rounded-2xl"
               disabled={loading}
-              loading={loading}
+              loading={loading && (wallet ? true : false)}
               onClick={() => {
                 wallet ?? walletStore.connect();
                 wallet && drip();
@@ -142,6 +141,19 @@ export default function Faucet() {
             >
               {wallet ? "Drip 💦" : "Connect wallet"}
             </Button>
+          </div>
+
+          <div className=" flex w-full flex-row items-center justify-center">
+            <p className="pt-4 text-sm text-zinc-500">
+              For L1 Mina tokens, please use the{" "}
+              <a
+                href="https://faucet.minaprotocol.com/"
+                target="_blank"
+                className="inline text-sm  underline"
+              >
+                Mina Faucet
+              </a>
+            </p>
           </div>
         </Card>
       </div>

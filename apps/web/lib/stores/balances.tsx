@@ -2,9 +2,9 @@ import { create } from "zustand";
 import { Client, useClientStore } from "./client";
 import { immer } from "zustand/middleware/immer";
 import { PendingTransaction, UnsignedTransaction } from "@proto-kit/sequencer";
-import { Balance, BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
+import { Balance, BalancesKey, TokenId } from "@proto-kit/library";
 import { PublicKey } from "o1js";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { useChainStore } from "./chain";
 import { useWalletStore } from "./wallet";
 import { Token, usePoolStore } from "./poolStore";
@@ -64,11 +64,6 @@ export const useBalancesStore = create<
       const balances = client.runtime.resolve("Balances");
       const sender = PublicKey.fromBase58(address);
 
-      // const accountNonce =
-      //   await client.query.protocol.AccountState.accountState.get(sender);
-      // console.log(accountNonce?.nonce.toBigInt());
-      // console.log("token", this.faucetTokenId);
-
       const tx = await client.transaction(sender, async () => {
         const amount = BigInt(1000) * DECIMALS;
         await balances.mintToken(
@@ -80,7 +75,6 @@ export const useBalancesStore = create<
 
       await tx.sign();
       await tx.send();
-      // console.log("nonce", tx.transaction?.nonce.toBigInt());
       console.log("Hash", tx.transaction?.hash().toString());
 
       isPendingTransaction(tx.transaction);
@@ -103,23 +97,4 @@ export const useObserveBalance = () => {
       balances.loadBalance(client.client, wallet.wallet, tokenId);
     }
   }, [client.client, chain.block?.height, wallet.wallet, poolStore.tokenList]);
-};
-
-// Todo remove this
-export const useFaucet = () => {
-  const client = useClientStore();
-  const balances = useBalancesStore();
-  const wallet = useWalletStore();
-
-  return useCallback(async () => {
-    if (!client.client || !wallet.wallet) return;
-
-    const pendingTransaction = await balances.faucet(
-      client.client,
-      wallet.wallet,
-      TokenId.from(balances.faucetTokenId),
-    );
-
-    wallet.addPendingTransaction(pendingTransaction);
-  }, [client.client, wallet.wallet, balances.faucetTokenId]);
 };
