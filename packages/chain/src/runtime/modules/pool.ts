@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { runtimeMethod, RuntimeModule, runtimeModule, state } from "@proto-kit/module";
 import { inject } from "tsyringe";
 import { Balances } from "./balances";
-import { Bool, Field, Poseidon, Provable, PublicKey, UInt64 as o164 } from "o1js";
+import { Bool, Field, Poseidon, Provable, PublicKey } from "o1js";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
 import { OrderBook } from "./orderbook";
@@ -234,6 +234,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         await this.pools.set(poolIdHash, updatedPool);
     }
 
+    // Todo change and private
     @runtimeMethod()
     public async rawSwap(
         tokenIn: TokenId,
@@ -319,6 +320,14 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
             currentPool.value.fee
         );
         await this.pools.set(poolIdHash, adjustedPool);
+    }
+
+    @runtimeMethod()
+    public async swap(tokenIn: TokenId, tokenOut: TokenId, amountIn: Balance, amountOut: Balance) {
+        assert(amountIn.greaterThan(Balance.from(0)), "AmountIn must be greater than 0");
+        assert(amountOut.greaterThan(Balance.from(0)), "AmountOut must be greater than 0");
+
+        await this.rawSwap(tokenIn, tokenOut, amountIn, amountOut);
     }
 
     @runtimeMethod()

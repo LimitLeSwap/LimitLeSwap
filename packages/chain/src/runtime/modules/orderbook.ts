@@ -3,7 +3,7 @@ import { inject } from "tsyringe";
 import { Balances } from "./balances";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
-import { Bool, Field, UInt64 as o1ui64, Provable } from "o1js";
+import { Bool, Field, UInt64 as o1ui64 } from "o1js";
 import { LimitOrder } from "../utils/limit-order";
 import { UserCaptivedTokenKey } from "../utils/user-captived-token-key";
 
