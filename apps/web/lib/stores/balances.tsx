@@ -13,7 +13,6 @@ import { DECIMALS } from "../constants";
 export interface BalancesState {
   loading: boolean;
   balances: {
-    // address - balance
     [key: string]: string;
   };
   faucetTokenId: string;
@@ -61,15 +60,19 @@ export const useBalancesStore = create<
         state.balances[token.name] = balance?.toString() ?? "0";
       });
     },
-    async faucet(client: Client, address: string, tokenId: TokenId) {
+    async faucet(client: Client, address: string) {
       const balances = client.runtime.resolve("Balances");
       const sender = PublicKey.fromBase58(address);
-      console.log("Faucet", tokenId.toString());
+
+      // const accountNonce =
+      //   await client.query.protocol.AccountState.accountState.get(sender);
+      // console.log(accountNonce?.nonce.toBigInt());
+      // console.log("token", this.faucetTokenId);
 
       const tx = await client.transaction(sender, async () => {
         const amount = BigInt(1000) * DECIMALS;
         await balances.mintToken(
-          tokenId,
+          TokenId.from(this.faucetTokenId),
           sender,
           Balance.from(amount.toString()),
         );
@@ -77,7 +80,7 @@ export const useBalancesStore = create<
 
       await tx.sign();
       await tx.send();
-      console.log("Faucet tx", tx.transaction?.nonce.toBigInt());
+      // console.log("nonce", tx.transaction?.nonce.toBigInt());
       console.log("Hash", tx.transaction?.hash().toString());
 
       isPendingTransaction(tx.transaction);
@@ -102,6 +105,7 @@ export const useObserveBalance = () => {
   }, [client.client, chain.block?.height, wallet.wallet, poolStore.tokenList]);
 };
 
+// Todo remove this
 export const useFaucet = () => {
   const client = useClientStore();
   const balances = useBalancesStore();

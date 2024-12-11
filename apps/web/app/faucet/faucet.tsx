@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useWalletStore } from "@/lib/stores/wallet";
-import { useBalancesStore, useFaucet } from "@/lib/stores/balances";
+import { useBalancesStore } from "@/lib/stores/balances";
 import {
   Select,
   SelectContent,
@@ -15,16 +15,20 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { Fuel } from "lucide-react";
+import { useClientStore } from "@/lib/stores/client";
+import { TokenId } from "@proto-kit/library";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Faucet() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connect;
-  const drip = useFaucet();
+  // const drip = useFaucet();
   const [token, setToken] = useState("MINA");
   const [loading, setLoading] = useState(true);
   const poolStore = usePoolStore();
   const balances = useBalancesStore();
+  const client = useClientStore();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (poolStore.tokenList.length > 0) {
@@ -38,6 +42,26 @@ export default function Faucet() {
       setLoading(true);
     }
   }, [token, poolStore.tokenList]);
+
+  const drip = async () => {
+    if (!client.client || !wallet) return;
+    setLoading(true);
+    try {
+      const pendingTransaction = await balances.faucet(
+        client.client,
+        wallet,
+        TokenId.from(balances.faucetTokenId),
+      );
+      walletStore.addPendingTransaction(pendingTransaction);
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to drip tokens",
+      });
+      console.error(e);
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
@@ -110,8 +134,9 @@ export default function Faucet() {
               type="submit"
               className=" w-full rounded-2xl"
               disabled={loading}
+              loading={loading}
               onClick={() => {
-                wallet ?? onConnectWallet();
+                wallet ?? walletStore.connect();
                 wallet && drip();
               }}
             >
