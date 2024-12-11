@@ -21,12 +21,12 @@ export default function MyOrders() {
 
   const cancelOrder = async (order: LimitOrder) => {
     if (client.client && walletStore.wallet) {
-      const limitOrderModule = client.client.runtime.resolve("LimitOrders");
+      const orderbook = client.client.runtime.resolve("OrderBook");
 
       const tx = await client.client.transaction(
         PublicKey.fromBase58(walletStore.wallet),
         async () => {
-          await limitOrderModule.cancelLimitOrder(Field.from(order.orderId));
+          await orderbook.cancelLimitOrder(Field.from(order.orderId));
         },
       );
       await tx.sign();
