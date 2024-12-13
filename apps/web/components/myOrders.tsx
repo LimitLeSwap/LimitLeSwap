@@ -1,6 +1,6 @@
 import React from "react";
 import { Table, TableBody, TableCell, TableRow } from "./ui/table";
-import { LimitOrder, useLimitStore } from "@/lib/stores/limitStore";
+import { useLimitStore } from "@/lib/stores/limitStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useChainStore } from "@/lib/stores/chain";
@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { useClientStore } from "@/lib/stores/client";
 import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
+import { PendingTransaction } from "@proto-kit/sequencer";
+import { useToast } from "./ui/use-toast";
 
 export default function MyOrders() {
   const walletStore = useWalletStore();
@@ -18,6 +20,8 @@ export default function MyOrders() {
   const poolStore = usePoolStore();
   const chainStore = useChainStore();
   const client = useClientStore();
+
+  const { toast } = useToast();
 
   const cancelOrder = async (order: LimitOrder) => {
     if (client.client && walletStore.wallet) {
@@ -32,8 +36,14 @@ export default function MyOrders() {
       await tx.sign();
       await tx.send();
 
-      //@ts-ignore
-      walletStore.addPendingTransaction(tx.transaction);
+      if (tx.transaction instanceof PendingTransaction)
+        walletStore.addPendingTransaction(tx.transaction);
+      else {
+        toast({
+          title: "Transaction failed",
+          description: "Please try again",
+        });
+      }
     }
   };
   return (

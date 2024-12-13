@@ -1,5 +1,5 @@
 import { useClientStore } from "@/lib/stores/client";
-import { Pool, Position, Token, usePoolStore } from "@/lib/stores/poolStore";
+import { usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { tokens } from "@/lib/tokens";
 import { BalancesKey, TokenId } from "@proto-kit/library";
@@ -74,6 +74,10 @@ export function Chain({ height }: ChainProps) {
           const token0Amount = pool.tokenAmountA.toBigInt().toString();
           const token1Amount = pool.tokenAmountB.toBigInt().toString();
 
+          const feeTier = Number(pool.fee.toString());
+
+          console.log(feeTier);
+
           const lpTokenSupply =
             await client.client!.query.runtime.Balances.circulatingSupply.get(
               TokenId.from(poolId.toString()),
@@ -86,6 +90,7 @@ export function Chain({ height }: ChainProps) {
               token1: tokenList.find((token) => token.tokenId === token1Id)!,
               token0Amount,
               token1Amount,
+              fee: feeTier.toString(),
               lpTokenSupply: lpTokenSupply?.toString() ?? "0",
             };
 
@@ -105,6 +110,7 @@ export function Chain({ height }: ChainProps) {
               token1: tokenList.find((token) => token.tokenId === token0Id)!,
               token0Amount: token1Amount,
               token1Amount: token0Amount,
+              fee: feeTier.toString(),
               lpTokenSupply: lpTokenSupply?.toString() ?? "0",
             };
 

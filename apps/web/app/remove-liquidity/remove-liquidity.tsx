@@ -15,9 +15,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { DECIMALS } from "@/lib/constants";
 import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
-import { Position, usePoolStore } from "@/lib/stores/poolStore";
+import { usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { Balance, TokenId } from "@proto-kit/library";
+import { PendingTransaction } from "@proto-kit/sequencer";
 import { ArrowDown, Flame } from "lucide-react";
 import { PublicKey } from "o1js";
 import React, { useEffect, useState } from "react";
@@ -99,8 +100,14 @@ export default function RemoveLiq() {
       await tx.sign();
       await tx.send();
 
-      //@ts-ignore
-      walletStore.addPendingTransaction(tx.transaction);
+      if (tx.transaction instanceof PendingTransaction)
+        walletStore.addPendingTransaction(tx.transaction);
+      else {
+        toast({
+          title: "Transaction failed",
+          description: "Please try again",
+        });
+      }
 
       setState({
         ...state,

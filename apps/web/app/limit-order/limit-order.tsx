@@ -20,6 +20,7 @@ import React, { useEffect, useState } from "react";
 import OrderBook from "@/components/orderBook";
 import MyOrders from "@/components/myOrders";
 import { DECIMALS } from "@/lib/constants";
+import { PendingTransaction } from "@proto-kit/sequencer";
 
 export default function LimitOrder() {
   const walletStore = useWalletStore();
@@ -106,8 +107,14 @@ export default function LimitOrder() {
       await tx.sign();
       await tx.send();
 
-      //@ts-ignore
-      walletStore.addPendingTransaction(tx.transaction);
+      if (tx.transaction instanceof PendingTransaction)
+        walletStore.addPendingTransaction(tx.transaction);
+      else {
+        toast({
+          title: "Transaction failed",
+          description: "Please try again",
+        });
+      }
     }
   };
 

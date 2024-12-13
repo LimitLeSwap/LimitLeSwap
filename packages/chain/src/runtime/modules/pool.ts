@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { runtimeMethod, RuntimeModule, runtimeModule, state } from "@proto-kit/module";
 import { inject } from "tsyringe";
 import { Balances } from "./balances";
-import { Bool, Field, Poseidon, Provable, PublicKey } from "o1js";
+import { Bool, Field, Provable, PublicKey } from "o1js";
 import { assert, State, StateMap } from "@proto-kit/protocol";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
 import { OrderBook } from "./orderbook";
@@ -47,7 +47,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         assert(currentPool.isSome.not(), "Pool already exists");
 
         let fee = UInt64.Safe.fromField(FEE_TIERS[0]);
-        for (let i = 1; i < FEE_TIERS.length; i++) {
+        for (let i = 0; i < FEE_TIERS.length; i++) {
             fee = UInt64.Safe.fromField(
                 Provable.if(feeTier.equals(UInt64.from(i)), FEE_TIERS[i], fee.value)
             );
@@ -94,7 +94,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         assert(lpTotal.equals(Balance.from(0)), "Pool is not empty");
 
         let fee = UInt64.Safe.fromField(FEE_TIERS[0]);
-        for (let i = 1; i < FEE_TIERS.length; i++) {
+        for (let i = 0; i < FEE_TIERS.length; i++) {
             fee = UInt64.Safe.fromField(
                 Provable.if(feeTier.equals(UInt64.from(i)), FEE_TIERS[i], fee.value)
             );

@@ -1,6 +1,5 @@
-import { Token } from "@/lib/stores/poolStore";
-import { useLimitStore } from "@/lib/stores/limitStore";
-import { useChainStore } from "@/lib/stores/chain";
+import { LimitState, useLimitStore } from "@/lib/stores/limitStore";
+import { ChainState, useChainStore } from "@/lib/stores/chain";
 
 export const calculateWithLimitOrders = (
   buyToken: Token,
@@ -9,10 +8,9 @@ export const calculateWithLimitOrders = (
   sellAmount: number,
   poolBuyTokenReserve: number,
   poolSellTokenReserve: number,
+  limitStore: LimitState,
+  chainStore: ChainState,
 ) => {
-  const limitStore = useLimitStore();
-  const chainStore = useChainStore();
-
   const limitOrders = limitStore.limitOrders
     .filter((order) => {
       return (

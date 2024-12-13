@@ -88,7 +88,7 @@ importers:
         specifier: ^1.0.2
         version: 1.1.0(@types/react@18.3.14)(react@18.3.1)
       '@radix-ui/react-tabs':
-        specifier: ^1.0.4
+        specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@18.3.2)(@types/react@18.3.14)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-toast':
         specifier: ^1.1.5
@@ -1162,7 +1162,7 @@ packages:
       '@proto-kit/module': '*'
       '@proto-kit/protocol': '*'
       '@proto-kit/sequencer': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/common@file:../framework/packages/common':
@@ -1179,7 +1179,7 @@ packages:
       '@proto-kit/sdk': '*'
       '@proto-kit/sequencer': '*'
       bullmq: ^3.15.8
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/indexer@file:../framework/packages/indexer':
@@ -1224,7 +1224,7 @@ packages:
       '@proto-kit/module': '*'
       '@proto-kit/protocol': '*'
       '@proto-kit/sequencer': '*'
-      o1js: ^1.1.0
+      o1js: ^1.6.0
       tsyringe: ^4.7.0
 
   '@proto-kit/processor@file:../framework/packages/processor':
@@ -8016,7 +8016,7 @@ snapshots:
       '@typescript-eslint/eslint-plugin': 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint@8.57.1)(typescript@4.9.5)
       '@typescript-eslint/parser': 6.21.0(eslint@8.57.1)(typescript@4.9.5)
       eslint-config-prettier: 9.1.0(eslint@8.57.1)
-      eslint-import-resolver-alias: 1.1.2(eslint-plugin-import@2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1))
+      eslint-import-resolver-alias: 1.1.2(eslint-plugin-import@2.31.0)
       eslint-import-resolver-typescript: 3.7.0(eslint-plugin-import@2.31.0)(eslint@8.57.1)
       eslint-plugin-eslint-comments: 3.2.0(eslint@8.57.1)
       eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1)
@@ -9272,7 +9272,7 @@ snapshots:
       eslint: 8.57.1
       eslint-plugin-turbo: 1.13.4(eslint@8.57.1)
 
-  eslint-import-resolver-alias@1.1.2(eslint-plugin-import@2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1)):
+  eslint-import-resolver-alias@1.1.2(eslint-plugin-import@2.31.0):
     dependencies:
       eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1)
 
@@ -9316,7 +9316,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import@2.31.0)(eslint@8.57.1))(eslint@8.57.1):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1):
     dependencies:
       debug: 3.2.7(supports-color@5.5.0)
     optionalDependencies:
@@ -9355,7 +9355,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0(eslint-plugin-import@2.31.0)(eslint@8.57.1))(eslint@8.57.1)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@4.9.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@8.57.1)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3

@@ -7,6 +7,42 @@ declare global {
       scalar: string;
     };
   }
+  interface Token {
+    name: string;
+    icon: string;
+    tokenId: string;
+  }
+
+  interface Pool {
+    poolId: string;
+    token0: Token;
+    token1: Token;
+    token0Amount: string;
+    token1Amount: string;
+    fee: string;
+    lpTokenSupply: string;
+  }
+
+  interface Position {
+    poolId: string;
+    token0: Token;
+    token1: Token;
+    token0Amount: string;
+    token1Amount: string;
+    lpTokenAmount: string;
+    lpTokenTotalSupply: string;
+  }
+
+  interface LimitOrder {
+    orderId: number;
+    expiration: string;
+    isActive: boolean;
+    tokenIn: string;
+    tokenInAmount: string;
+    tokenOut: string;
+    tokenOutAmount: string;
+    owner: PublicKey;
+  }
 
   declare var mina:
     | {

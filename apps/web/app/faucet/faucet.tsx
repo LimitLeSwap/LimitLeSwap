@@ -133,7 +133,7 @@ export default function Faucet() {
               type="submit"
               className=" w-full rounded-2xl"
               disabled={loading}
-              loading={loading && (wallet ? true : false)}
+              loading={loading && (wallet ? false : true)}
               onClick={() => {
                 wallet ?? walletStore.connect();
                 wallet && drip();

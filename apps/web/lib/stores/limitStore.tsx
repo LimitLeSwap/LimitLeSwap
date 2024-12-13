@@ -4,18 +4,18 @@ import { useClientStore } from "./client";
 import { useWalletStore } from "./wallet";
 import { useChainStore } from "./chain";
 import { useEffect, useRef } from "react";
-import { Field, PublicKey } from "o1js";
+import { Field, Provable, PublicKey, Struct } from "o1js";
 import isEqual from "lodash.isequal";
 
-export interface LimitOrder {
-  orderId: number;
-  expiration: string;
-  isActive: boolean;
-  tokenIn: string;
-  tokenInAmount: string;
-  tokenOut: string;
-  tokenOutAmount: string;
-  owner: PublicKey;
+export const MAX_ORDER_SIZE = 10;
+
+export class OrderBundle extends Struct({
+  bundle: Provable.Array(Field, MAX_ORDER_SIZE),
+}) {
+  public static empty(): OrderBundle {
+    const bundle = Array<Field>(10).fill(Field.from(0));
+    return new OrderBundle({ bundle });
+  }
 }
 
 export interface LimitState {

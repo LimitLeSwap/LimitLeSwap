@@ -13,7 +13,7 @@ import {
 import { useWalletStore } from "@/lib/stores/wallet";
 import { ArrowUpDown, Route } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { OrderBundle, Pool, usePoolStore } from "@/lib/stores/poolStore";
+import { usePoolStore } from "@/lib/stores/poolStore";
 import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { Balance, TokenId } from "@proto-kit/library";
@@ -22,6 +22,8 @@ import { Field, Poseidon, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
 import PoolRatio from "./poolRatio";
 import { calculateSwap, calculateWithLimitOrders } from "./swapFunctions";
+import { OrderBundle, useLimitStore } from "@/lib/stores/limitStore";
+import { useChainStore } from "@/lib/stores/chain";
 
 export default function Swap() {
   const walletStore = useWalletStore();
@@ -52,6 +54,8 @@ export default function Swap() {
   const poolStore = usePoolStore();
   const hasMounted = useHasMounted();
   const client = useClientStore();
+  const limitStore = useLimitStore();
+  const chainStore = useChainStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -110,6 +114,8 @@ export default function Swap() {
             sellAmount,
             poolBuyTokenReserve,
             poolSellTokenReserve,
+            limitStore,
+            chainStore,
           );
 
         console.table([ordersToFill, bestAmountOut, newPriceImpact]);
@@ -145,6 +151,7 @@ export default function Swap() {
                 Number(pool.token1Amount) -
                 (bestAmountOut - limitTotalAmountOut)
               ).toString(),
+              fee: pool.fee,
               lpTokenSupply: pool.lpTokenSupply,
             };
 
@@ -162,6 +169,7 @@ export default function Swap() {
                 Number(pool.token1Amount) +
                 (sellAmount - limitTotalAmountIn)
               ).toString(),
+              fee: pool.fee,
               lpTokenSupply: pool.lpTokenSupply,
             };
 
@@ -182,6 +190,7 @@ export default function Swap() {
               token1: pool.token1,
               token0Amount: (Number(pool.token0Amount) + sellAmount).toString(),
               token1Amount: (Number(pool.token1Amount) - amountOut).toString(),
+              fee: pool.fee,
               lpTokenSupply: pool.lpTokenSupply,
             };
 
@@ -193,6 +202,7 @@ export default function Swap() {
               token1: pool.token1,
               token0Amount: (Number(pool.token0Amount) - amountOut).toString(),
               token1Amount: (Number(pool.token1Amount) + sellAmount).toString(),
+              fee: pool.fee,
               lpTokenSupply: pool.lpTokenSupply,
             };
 
@@ -402,6 +412,7 @@ export default function Swap() {
                 maxLength={40}
                 inputMode="decimal"
                 type="number"
+                className=" cursor-default"
               />
               {limitState.execute ? (
                 <p className=" text-xl text-green-600">

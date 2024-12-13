@@ -15,19 +15,21 @@ import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useClientStore } from "@/lib/stores/client";
-import { Balance, TokenId } from "@proto-kit/library";
+import { Balance, TokenId, UInt64 } from "@proto-kit/library";
 import { PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PendingTransaction } from "@proto-kit/sequencer";
 
 export default function CreatePool() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connect;
   const [state, setState] = useState({
     tokenAmountA: 0,
     tokenAmountB: 0,
     tokenA: "MINA",
     tokenB: "USDT",
+    feeTier: 2,
   });
   const { toast } = useToast();
   const poolStore = usePoolStore();
@@ -108,15 +110,23 @@ export default function CreatePool() {
             TokenAmountA,
             TokenAmountB,
             PublicKey.fromBase58(wallet),
-            lpRequested,
+            // lpRequested,
+            UInt64.from(state.feeTier),
           );
         },
       );
 
       await tx.sign();
       await tx.send();
-      //@ts-ignore
-      walletStore.addPendingTransaction(tx.transaction);
+
+      if (tx.transaction instanceof PendingTransaction)
+        walletStore.addPendingTransaction(tx.transaction);
+      else {
+        toast({
+          title: "Transaction failed",
+          description: "Please try again",
+        });
+      }
     }
   };
 
@@ -214,7 +224,6 @@ export default function CreatePool() {
               }}
             >
               <SelectTrigger className=" w-60 rounded-2xl">
-                {/* <img src={`/${state.tokenB}.png`} className=" h-4 w-4" /> */}
                 <SelectValue placeholder="Select a token to swap" />
               </SelectTrigger>
 
@@ -247,12 +256,27 @@ export default function CreatePool() {
             </Select>
           </div>
 
+          <Tabs
+            value={state.feeTier.toString()}
+            onValueChange={(value) => {
+              setState({ ...state, feeTier: Number(value) });
+            }}
+            className="mt-6 w-full rounded-2xl"
+          >
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="0">0.01%</TabsTrigger>
+              <TabsTrigger value="1">0.05%</TabsTrigger>
+              <TabsTrigger value="2">0.3%</TabsTrigger>
+              <TabsTrigger value="3">1%</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <Button
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
             onClick={() => {
-              wallet ?? onConnectWallet();
+              wallet ?? walletStore.connect();
               wallet && handleSubmit();
             }}
           >
