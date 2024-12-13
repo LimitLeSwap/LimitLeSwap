@@ -110,8 +110,8 @@ export default function CreatePool() {
             TokenAmountA,
             TokenAmountB,
             PublicKey.fromBase58(wallet),
-            // lpRequested,
             UInt64.from(state.feeTier),
+            lpRequested,
           );
         },
       );

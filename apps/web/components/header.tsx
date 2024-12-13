@@ -65,12 +65,9 @@ export default function Header({
           </Button>
           <Popover>
             <PopoverTrigger>
-              <Button
-                variant={"hover"}
-                className="xl:text-md sm:h-9 sm:px-2 sm:text-sm xl:h-10 xl:px-4"
-              >
+              <div className="xl:text-md inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium text-secondary ring-offset-background transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:h-9 sm:px-2 sm:text-sm xl:h-10 xl:px-4">
                 Pool
-              </Button>
+              </div>
             </PopoverTrigger>
             <PopoverContent className="hidden w-20 flex-col gap-1 rounded-2xl p-1 sm:flex sm:w-32 md:w-36 md:gap-2 xl:w-48 xl:gap-4">
               <Button

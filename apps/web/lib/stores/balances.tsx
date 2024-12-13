@@ -7,7 +7,7 @@ import { PublicKey } from "o1js";
 import { useEffect } from "react";
 import { useChainStore } from "./chain";
 import { useWalletStore } from "./wallet";
-import { Token, usePoolStore } from "./poolStore";
+import { usePoolStore } from "./poolStore";
 import { DECIMALS } from "../constants";
 
 export interface BalancesState {

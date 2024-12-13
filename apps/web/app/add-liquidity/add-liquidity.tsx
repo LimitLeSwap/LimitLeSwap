@@ -15,7 +15,7 @@ import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
-import { Balance, TokenId } from "@proto-kit/library";
+import { Balance, BalancesKey, TokenId } from "@proto-kit/library";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { ArrowDown, Droplets, Plus } from "lucide-react";
 import { PublicKey } from "o1js";
@@ -23,19 +23,12 @@ import React, { useEffect, useState } from "react";
 
 export default function AddLiq() {
   const walletStore = useWalletStore();
-  const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connect;
-  const poolStore = usePoolStore();
   const hasMounted = useHasMounted();
+  const poolStore = usePoolStore();
   const client = useClientStore();
   const { toast } = useToast();
-  const calculateQuote = (
-    tokenAReserve: number,
-    tokenBReserve: number,
-    tokenAAmount: number,
-  ) => {
-    return (tokenBReserve * tokenAAmount) / tokenAReserve;
-  };
+
+  const wallet = walletStore.wallet;
 
   const [pool, setPool] = useState<Pool | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
@@ -47,6 +40,14 @@ export default function AddLiq() {
     lpRequested: 0,
     emptyPool: false,
   });
+
+  const calculateQuote = (
+    tokenAReserve: number,
+    tokenBReserve: number,
+    tokenAAmount: number,
+  ) => {
+    return (tokenBReserve * tokenAAmount) / tokenAReserve;
+  };
 
   useEffect(() => {
     let tokenA = poolStore.tokenList.find(
@@ -72,6 +73,7 @@ export default function AddLiq() {
       setPosition(pos ?? null);
     }
   }, [state.tokenA, state.tokenB, hasMounted, poolStore.poolList]);
+
   const handleSubmit = async () => {
     let tokenAid = poolStore.tokenList.find(
       (token) => token.name === state.tokenA,
@@ -115,6 +117,16 @@ export default function AddLiq() {
       );
       console.log(lpAmount.toString());
 
+      const key = BalancesKey.from(
+        tokenA,
+        PublicKey.fromBase58(
+          "B62qpgF6PwfAHdH3DvkB9escDqvjXRqyDFoqTcdsWBCAaVppZ7dBsk1",
+        ),
+      );
+      const reserveA =
+        await client.client.query.runtime.Balances.balances.get(key);
+      console.log("reserve", reserveA?.toString());
+
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),
         async () => {
@@ -141,69 +153,69 @@ export default function AddLiq() {
     }
   };
 
-  const handleEmptyPool = async () => {
-    let tokenA = poolStore.tokenList.find(
-      (token) => token.name === state.tokenA,
-    );
-    let tokenB = poolStore.tokenList.find(
-      (token) => token.name === state.tokenB,
-    );
-    if (state.tokenAmountA <= 0 || state.tokenAmountB <= 0) {
-      toast({
-        title: "Invalid token amount",
-        description: "Please enter a valid token amount",
-      });
-      return;
-    }
-    if (client.client && wallet && tokenA && tokenB) {
-      const TokenIdA = TokenId.from(tokenA.tokenId);
-      const TokenIdB = TokenId.from(tokenB.tokenId);
-      const TokenAmountA = Balance.from(
-        BigInt(state.tokenAmountA * Number(DECIMALS)),
-      );
-      const TokenAmountB = Balance.from(
-        BigInt(state.tokenAmountB * Number(DECIMALS)),
-      );
-      const lpRequested = Balance.from(
-        BigInt(
-          Math.floor(
-            Math.sqrt(state.tokenAmountA * state.tokenAmountB) *
-              Number(DECIMALS),
-          ),
-        ),
-      );
+  // const handleEmptyPool = async () => {
+  //   let tokenA = poolStore.tokenList.find(
+  //     (token) => token.name === state.tokenA,
+  //   );
+  //   let tokenB = poolStore.tokenList.find(
+  //     (token) => token.name === state.tokenB,
+  //   );
+  //   if (state.tokenAmountA <= 0 || state.tokenAmountB <= 0) {
+  //     toast({
+  //       title: "Invalid token amount",
+  //       description: "Please enter a valid token amount",
+  //     });
+  //     return;
+  //   }
+  //   if (client.client && wallet && tokenA && tokenB) {
+  //     const TokenIdA = TokenId.from(tokenA.tokenId);
+  //     const TokenIdB = TokenId.from(tokenB.tokenId);
+  //     const TokenAmountA = Balance.from(
+  //       BigInt(state.tokenAmountA * Number(DECIMALS)),
+  //     );
+  //     const TokenAmountB = Balance.from(
+  //       BigInt(state.tokenAmountB * Number(DECIMALS)),
+  //     );
+  //     const lpRequested = Balance.from(
+  //       BigInt(
+  //         Math.floor(
+  //           Math.sqrt(state.tokenAmountA * state.tokenAmountB) *
+  //             Number(DECIMALS),
+  //         ),
+  //       ),
+  //     );
 
-      console.log(lpRequested.mul(lpRequested).toString());
-      console.log(TokenAmountA.mul(TokenAmountB).toString());
+  //     console.log(lpRequested.mul(lpRequested).toString());
+  //     console.log(TokenAmountA.mul(TokenAmountB).toString());
 
-      const poolModule = client.client.runtime.resolve("PoolModule");
+  //     const poolModule = client.client.runtime.resolve("PoolModule");
 
-      const tx = await client.client.transaction(
-        PublicKey.fromBase58(wallet),
-        async () => {
-          await poolModule.addLiquidityToEmptyPool(
-            TokenIdA,
-            TokenIdB,
-            TokenAmountA,
-            TokenAmountB,
-            PublicKey.fromBase58(wallet),
-            lpRequested,
-          );
-        },
-      );
+  //     const tx = await client.client.transaction(
+  //       PublicKey.fromBase58(wallet),
+  //       async () => {
+  //         await poolModule.addLiquidityToEmptyPool(
+  //           TokenIdA,
+  //           TokenIdB,
+  //           TokenAmountA,
+  //           TokenAmountB,
+  //           PublicKey.fromBase58(wallet),
+  //           lpRequested,
+  //         );
+  //       },
+  //     );
 
-      await tx.sign();
-      await tx.send();
-      if (tx.transaction instanceof PendingTransaction)
-        walletStore.addPendingTransaction(tx.transaction);
-      else {
-        toast({
-          title: "Transaction failed",
-          description: "Please try again",
-        });
-      }
-    }
-  };
+  //     await tx.sign();
+  //     await tx.send();
+  //     if (tx.transaction instanceof PendingTransaction)
+  //       walletStore.addPendingTransaction(tx.transaction);
+  //     else {
+  //       toast({
+  //         title: "Transaction failed",
+  //         description: "Please try again",
+  //       });
+  //     }
+  //   }
+  // };
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
       <div className="flex w-full max-w-[470px] sm:w-[470px]">
@@ -459,9 +471,8 @@ export default function AddLiq() {
             className="mt-6 w-full rounded-2xl"
             disabled={!wallet || !pool}
             onClick={() => {
-              wallet ?? onConnectWallet();
-              wallet && !state.emptyPool && handleSubmit();
-              wallet && state.emptyPool && handleEmptyPool();
+              wallet ?? walletStore.connect();
+              wallet && handleSubmit();
             }}
           >
             {wallet

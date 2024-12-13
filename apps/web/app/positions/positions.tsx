@@ -45,7 +45,7 @@ export default function Positions() {
               <TableBody>
                 {poolStore.positionList.length > 0 ? (
                   poolStore.positionList.map((position, i) => (
-                    <Dialog>
+                    <Dialog key={i}>
                       <DialogTrigger asChild>
                         <TableRow key={i} className=" cursor-pointer">
                           <TableCell className="flex flex-row items-center justify-around text-center">

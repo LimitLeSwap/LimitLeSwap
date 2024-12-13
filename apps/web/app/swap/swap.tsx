@@ -303,7 +303,7 @@ export default function Swap() {
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),
         async () => {
-          await poolModule.rawSwap(tokenIn, tokenOut, amountIn, amountOut);
+          await poolModule.swap(tokenIn, tokenOut, amountIn, amountOut);
         },
       );
 
