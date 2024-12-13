@@ -18,7 +18,7 @@ function minBigInt(a: bigint, b: bigint): bigint {
     return a < b ? a : b;
 }
 
-const MINIMUM_LIQUIDITY = 1000n;
+export const MINIMUM_LIQUIDITY = 1000n;
 
 export function calculateInitialLPSupply(tokenAmountA: Balance, tokenAmountB: Balance): Balance {
     const initialLPSupply = Provable.witness(Balance, () => {

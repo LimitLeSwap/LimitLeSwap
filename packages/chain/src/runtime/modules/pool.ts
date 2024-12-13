@@ -9,7 +9,7 @@ import { OrderBook } from "./orderbook";
 import { OrderBundle } from "../utils/limit-order";
 import { LiquidityPool } from "../utils/liquidity-pool";
 import { PoolId } from "../utils/pool-id";
-import { calculateInitialLPSupply, calculateLPShare } from "../utils/math";
+import { calculateInitialLPSupply, calculateLPShare, MINIMUM_LIQUIDITY } from "../utils/math";
 
 interface PoolModuleConfig {}
 
@@ -34,26 +34,32 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         tokenAmountA: Balance,
         tokenAmountB: Balance,
         sender: PublicKey,
-        feeTier: UInt64
+        feeTierIndex: UInt64,
+        lpRequestedAmount: Balance
     ) {
-        assert(feeTier.lessThan(UInt64.from(FEE_TIERS.length)), "Invalid fee tier");
+        assert(feeTierIndex.lessThan(UInt64.from(FEE_TIERS.length)), "Invalid fee tier");
 
         const poolId = PoolId.from(tokenA, tokenB);
         const poolIdHash = poolId.getPoolIdHash();
         const poolAccount = poolId.getPoolAccount();
+
+        Provable.asProver(() => {
+            console.log("poolIdHash", poolIdHash.toString());
+            console.log("poolAccount", poolAccount.toBase58());
+        });
 
         const currentPool = await this.pools.get(poolIdHash);
 
         assert(currentPool.isSome.not(), "Pool already exists");
 
-        let fee = UInt64.Safe.fromField(FEE_TIERS[0]);
+        let feeTier = UInt64.Safe.fromField(FEE_TIERS[0]);
         for (let i = 0; i < FEE_TIERS.length; i++) {
-            fee = UInt64.Safe.fromField(
-                Provable.if(feeTier.equals(UInt64.from(i)), FEE_TIERS[i], fee.value)
+            feeTier = UInt64.Safe.fromField(
+                Provable.if(feeTierIndex.equals(UInt64.from(i)), FEE_TIERS[i], feeTier.value)
             );
         }
 
-        const pool = LiquidityPool.from(tokenA, tokenB, tokenAmountA, tokenAmountB, fee);
+        const pool = LiquidityPool.from(tokenA, tokenB, tokenAmountA, tokenAmountB, feeTier);
 
         const senderBalanceA = await this.balances.getBalance(tokenA, sender);
         assert(senderBalanceA.greaterThanOrEqual(tokenAmountA));
@@ -64,56 +70,27 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         await this.balances.transfer(tokenA, sender, poolAccount, tokenAmountA);
         await this.balances.transfer(tokenB, sender, poolAccount, tokenAmountB);
 
-        const initialLPSupply = calculateInitialLPSupply(tokenAmountA, tokenAmountB);
+        // enable this line to calculate witness on server side
+        // const initialLPSupply = calculateInitialLPSupply(tokenAmountA, tokenAmountB);
 
-        await this.balances.mintToken(poolIdHash, this.transaction.sender.value, initialLPSupply);
+        assert(
+            lpRequestedAmount.greaterThanOrEqual(Balance.from(0)),
+            "Requested LP amount must be greater than 0"
+        );
+        assert(
+            lpRequestedAmount
+                .mul(lpRequestedAmount)
+                .lessThanOrEqual(tokenAmountA.mul(tokenAmountB).sub(MINIMUM_LIQUIDITY)),
+            "Requested LP amount is too large"
+        );
+
+        await this.balances.mintToken(poolIdHash, this.transaction.sender.value, lpRequestedAmount);
+        await this.balances.mintToken(poolIdHash, poolAccount, Balance.from(MINIMUM_LIQUIDITY));
         await this.pools.set(poolIdHash, pool);
 
         const currentCount = await this.poolCount.get();
         await this.poolIds.set(currentCount.value, poolIdHash);
         await this.poolCount.set(Field.from(currentCount.value.add(1)));
-    }
-
-    @runtimeMethod()
-    public async addLiquidityToEmptyPool(
-        tokenA: TokenId,
-        tokenB: TokenId,
-        tokenAmountA: Balance,
-        tokenAmountB: Balance,
-        sender: PublicKey,
-        feeTier: UInt64
-    ) {
-        const poolId = PoolId.from(tokenA, tokenB);
-        const poolIdHash = poolId.getPoolIdHash();
-        const poolAccount = poolId.getPoolAccount();
-
-        const currentPool = await this.pools.get(poolIdHash);
-        assert(currentPool.isSome, "Pool does not exist");
-
-        const lpTotal = await this.balances.getCirculatingSupply(poolIdHash);
-        assert(lpTotal.equals(Balance.from(0)), "Pool is not empty");
-
-        let fee = UInt64.Safe.fromField(FEE_TIERS[0]);
-        for (let i = 0; i < FEE_TIERS.length; i++) {
-            fee = UInt64.Safe.fromField(
-                Provable.if(feeTier.equals(UInt64.from(i)), FEE_TIERS[i], fee.value)
-            );
-        }
-
-        const senderBalanceA = await this.balances.getBalance(tokenA, sender);
-        assert(senderBalanceA.greaterThanOrEqual(tokenAmountA));
-
-        const senderBalanceB = await this.balances.getBalance(tokenB, sender);
-        assert(senderBalanceB.greaterThanOrEqual(tokenAmountB));
-
-        await this.balances.transfer(tokenA, sender, poolAccount, tokenAmountA);
-        await this.balances.transfer(tokenB, sender, poolAccount, tokenAmountB);
-
-        const lpAmountMinted = calculateInitialLPSupply(tokenAmountA, tokenAmountB);
-        await this.balances.mintToken(poolIdHash, this.transaction.sender.value, lpAmountMinted);
-
-        const updatedPool = LiquidityPool.from(tokenA, tokenB, tokenAmountA, tokenAmountB, fee);
-        await this.pools.set(poolIdHash, updatedPool);
     }
 
     @runtimeMethod()
@@ -128,6 +105,11 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         const poolIdHash = poolId.getPoolIdHash();
         const poolAccount = poolId.getPoolAccount();
 
+        Provable.asProver(() => {
+            console.log("poolIdHash", poolIdHash.toString());
+            console.log("poolAccount", poolAccount.toBase58());
+        });
+
         const currentPool = await this.pools.get(poolIdHash);
         assert(currentPool.isSome, "Pool does not exist");
         assert(lpRequestedAmount.greaterThan(Balance.from(0)), "LP tokens must be greater than 0");
@@ -139,17 +121,45 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         const reserveA = await this.balances.getBalance(tokenA, poolAccount);
         const reserveB = await this.balances.getBalance(tokenB, poolAccount);
 
-        assert(tokenAmountA.mul(reserveB).equals(tokenAmountB.mul(reserveA)), "Invalid ratio");
+        // do we need this assertion?
+        // assert(tokenAmountA.mul(reserveB).equals(tokenAmountB.mul(reserveA)), "Invalid ratio");
 
-        const calculatedLPShare = calculateLPShare(
-            tokenAmountA,
-            tokenAmountB,
-            reserveA,
-            reserveB,
-            lpTotal
+        // enable this line to calculate witness on server side
+        // const calculatedLPShare = calculateLPShare( tokenAmountA, tokenAmountB, reserveA, reserveB, lpTotal);
+        // assert(calculatedLPShare.greaterThanOrEqual(lpRequestedAmount), "Too much LP requested");
+
+        Provable.asProver(() => {
+            console.log("reserveA", reserveA.toString());
+            console.log("reserveB", reserveB.toString());
+            console.log("tokenAmountA", tokenAmountA.toString());
+            console.log("tokenAmountB", tokenAmountB.toString());
+            console.log("lpTotal", lpTotal.toString());
+            console.log("lpRequestedAmount", lpRequestedAmount.toString());
+
+            console.log("reserveA value", reserveA.value.toString());
+            console.log("reserveB value", reserveB.value.toString());
+            console.log("tokenAmountA value", tokenAmountA.value.toString());
+            console.log("tokenAmountB value", tokenAmountB.value.toString());
+            console.log("lpTotal value", lpTotal.value.toString());
+            console.log("lpRequestedAmount value", lpRequestedAmount.value.toString());
+        });
+
+        const respectToA = Balance.Safe.fromField(
+            tokenAmountA.value.mul(lpTotal.value).div(reserveA.value)
         );
 
-        assert(calculatedLPShare.greaterThanOrEqual(lpRequestedAmount), "Too much LP requested");
+        const respectToB = Balance.Safe.fromField(
+            tokenAmountB.value.mul(lpTotal.value).div(reserveB.value)
+        );
+
+        assert(
+            lpRequestedAmount.lessThanOrEqual(respectToA),
+            "Invalid LP requested amount respect to A"
+        );
+        assert(
+            lpRequestedAmount.lessThanOrEqual(respectToB),
+            "Invalid LP requested amount respect to B"
+        );
 
         await this.balances.transfer(
             tokenA,
@@ -234,9 +244,9 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         await this.pools.set(poolIdHash, updatedPool);
     }
 
-    // Todo change and private
+    // Todo inspect this function
     @runtimeMethod()
-    public async rawSwap(
+    private async rawSwap(
         tokenIn: TokenId,
         tokenOut: TokenId,
         amountIn: Balance,
