@@ -12,34 +12,44 @@ import {
 } from "@/components/ui/select";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { ArrowUpDown, Route } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { Balance, TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
-import { Field, Poseidon, PublicKey } from "o1js";
+import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
 import PoolRatio from "./poolRatio";
-import { calculateSwap, calculateWithLimitOrders } from "./swapFunctions";
+import {
+  calculateSwap,
+  calculateWithLimitOrders,
+  findPool,
+} from "./swapFunctions";
 import { OrderBundle, useLimitStore } from "@/lib/stores/limitStore";
 import { useChainStore } from "@/lib/stores/chain";
+import { PendingTransaction } from "@proto-kit/sequencer";
 
 export default function Swap() {
   const walletStore = useWalletStore();
-  const onConnectWallet = walletStore.connect;
+  const limitStore = useLimitStore();
+  const hasMounted = useHasMounted();
+  const chainStore = useChainStore();
+  const poolStore = usePoolStore();
+  const client = useClientStore();
   const wallet = walletStore.wallet;
+
   const [state, setState] = useState({
     sellToken: "MINA",
     buyToken: "USDT",
-    sellAmount: 0,
+    sellAmount: "",
     buyAmount: 0,
     priceImpact: "0",
   });
 
-  const [pool, setPool] = useState<Pool | null>(null);
   const [seePoolDetails, setSeePoolDetails] = useState(false);
   const [newPool, setNewPool] = useState<Pool | null>(null);
+  const [pool, setPool] = useState<Pool | null>(null);
   const [limitState, setlimitState] = useState<{
     execute: boolean;
     ordersToFill: null | any[];
@@ -51,189 +61,197 @@ export default function Swap() {
     bestAmountOut: 0,
     newPriceImpact: 0,
   });
-  const poolStore = usePoolStore();
-  const hasMounted = useHasMounted();
-  const client = useClientStore();
-  const limitStore = useLimitStore();
-  const chainStore = useChainStore();
+
   const { toast } = useToast();
 
-  useEffect(() => {
-    let sellToken = poolStore.tokenList.find(
-      (token) => token.name === state.sellToken,
-    );
-    let buyToken = poolStore.tokenList.find(
-      (token) => token.name === state.buyToken,
-    );
-    const pool = poolStore.poolList.find((pool) => {
-      return (
-        (pool.token0.name === sellToken?.name &&
-          pool.token1.name === buyToken?.name) ||
-        (pool.token0.name === buyToken?.name &&
-          pool.token1.name === sellToken?.name)
-      );
-    });
-    setPool(pool ?? null);
-    // console.log(pool);
-    if (pool) {
-      const sellAmount = Number(state.sellAmount) * Number(DECIMALS);
-
-      const poolSellTokenReserve =
-        pool.token0.name === sellToken?.name
-          ? Number(pool.token0Amount)
-          : Number(pool.token1Amount);
-
-      const poolBuyTokenReserve =
-        pool.token0.name === buyToken?.name
-          ? Number(pool.token0Amount)
-          : Number(pool.token1Amount);
-
-      if (
-        // sellAmount > poolSellTokenReserve ||
-        sellAmount <= 0
-      ) {
-        setState({
-          ...state,
-          buyAmount: 0,
-          priceImpact: "0",
-        });
-        setNewPool(null);
-        return;
-      } else {
-        const { amountOut, price, priceImpact } = calculateSwap(
-          poolBuyTokenReserve,
-          poolSellTokenReserve,
-          sellAmount,
-        );
-        console.table([amountOut, price, priceImpact]);
-        const { ordersToFill, bestAmountOut, newPriceImpact } =
-          calculateWithLimitOrders(
-            buyToken!,
-            sellToken!,
-            amountOut,
-            sellAmount,
-            poolBuyTokenReserve,
-            poolSellTokenReserve,
-            limitStore,
-            chainStore,
-          );
-
-        console.table([ordersToFill, bestAmountOut, newPriceImpact]);
-
-        if (bestAmountOut > amountOut) {
-          setlimitState({
-            execute: true,
-            ordersToFill,
-            bestAmountOut: bestAmountOut,
-            newPriceImpact: Number(newPriceImpact.toFixed(1)),
-          });
-
-          const limitTotalAmountIn = ordersToFill.reduce(
-            (acc, order) => acc + order.amountIn,
-            0,
-          );
-
-          const limitTotalAmountOut = ordersToFill.reduce(
-            (acc, order) => acc + order.amountOut,
-            0,
-          );
-
-          if (pool.token0.name === sellToken?.name) {
-            const afterPool: Pool = {
-              poolId: pool.poolId,
-              token0: pool.token0,
-              token1: pool.token1,
-              token0Amount: (
-                Number(pool.token0Amount) +
-                (sellAmount - limitTotalAmountIn)
-              ).toString(),
-              token1Amount: (
-                Number(pool.token1Amount) -
-                (bestAmountOut - limitTotalAmountOut)
-              ).toString(),
-              fee: pool.fee,
-              lpTokenSupply: pool.lpTokenSupply,
-            };
-
-            setNewPool(afterPool);
-          } else {
-            const afterPool: Pool = {
-              poolId: pool.poolId,
-              token0: pool.token0,
-              token1: pool.token1,
-              token0Amount: (
-                Number(pool.token0Amount) -
-                (bestAmountOut - limitTotalAmountOut)
-              ).toString(),
-              token1Amount: (
-                Number(pool.token1Amount) +
-                (sellAmount - limitTotalAmountIn)
-              ).toString(),
-              fee: pool.fee,
-              lpTokenSupply: pool.lpTokenSupply,
-            };
-
-            setNewPool(afterPool);
-          }
-        } else {
-          setlimitState({
-            execute: false,
-            ordersToFill: [],
-            bestAmountOut: 0,
-            newPriceImpact: 0,
-          });
-
-          if (pool.token0.name === sellToken?.name) {
-            const afterPool: Pool = {
-              poolId: pool.poolId,
-              token0: pool.token0,
-              token1: pool.token1,
-              token0Amount: (Number(pool.token0Amount) + sellAmount).toString(),
-              token1Amount: (Number(pool.token1Amount) - amountOut).toString(),
-              fee: pool.fee,
-              lpTokenSupply: pool.lpTokenSupply,
-            };
-
-            setNewPool(afterPool);
-          } else {
-            const afterPool: Pool = {
-              poolId: pool.poolId,
-              token0: pool.token0,
-              token1: pool.token1,
-              token0Amount: (Number(pool.token0Amount) - amountOut).toString(),
-              token1Amount: (Number(pool.token1Amount) + sellAmount).toString(),
-              fee: pool.fee,
-              lpTokenSupply: pool.lpTokenSupply,
-            };
-
-            setNewPool(afterPool);
-          }
-        }
-
-        setState({
-          ...state,
-          buyAmount: amountOut,
-          priceImpact: priceImpact.toFixed(2),
-        });
-      }
-    }
+  const [sellTokenObj, buyTokenObj, currentPool] = useMemo(() => {
+    return findPool(state.sellToken, state.buyToken, poolStore);
   }, [
     state.sellToken,
     state.buyToken,
-    hasMounted,
-    state.sellAmount,
     poolStore.poolList,
+    poolStore.tokenList,
+  ]);
+
+  useEffect(() => {
+    setPool(currentPool);
+  }, [currentPool]);
+
+  useEffect(() => {
+    if (!hasMounted || !currentPool || !sellTokenObj || !buyTokenObj) {
+      return;
+    }
+
+    const sellAmountNum = parseFloat(state.sellAmount);
+    if (isNaN(sellAmountNum) || sellAmountNum <= 0) {
+      setState((prev) => ({
+        ...prev,
+        buyAmount: 0,
+        priceImpact: "0",
+      }));
+      setNewPool(null);
+      setlimitState({
+        execute: false,
+        ordersToFill: [],
+        bestAmountOut: 0,
+        newPriceImpact: 0,
+      });
+      return;
+    }
+
+    const sellAmount = sellAmountNum * Number(DECIMALS);
+
+    const poolSellTokenReserve =
+      currentPool.token0.name === sellTokenObj?.name
+        ? Number(currentPool.token0Amount)
+        : Number(currentPool.token1Amount);
+
+    const poolBuyTokenReserve =
+      currentPool.token0.name === buyTokenObj?.name
+        ? Number(currentPool.token0Amount)
+        : Number(currentPool.token1Amount);
+
+    const { amountOut, price, priceImpact } = calculateSwap(
+      poolBuyTokenReserve,
+      poolSellTokenReserve,
+      sellAmount,
+    );
+
+    console.table([amountOut, price, priceImpact]);
+
+    const { ordersToFill, bestAmountOut, newPriceImpact } =
+      calculateWithLimitOrders(
+        buyTokenObj,
+        sellTokenObj,
+        amountOut,
+        sellAmount,
+        poolBuyTokenReserve,
+        poolSellTokenReserve,
+        limitStore,
+        chainStore,
+      );
+
+    console.table([ordersToFill, bestAmountOut, newPriceImpact]);
+
+    if (bestAmountOut > amountOut) {
+      setlimitState({
+        execute: true,
+        ordersToFill,
+        bestAmountOut: bestAmountOut,
+        newPriceImpact: Number(newPriceImpact.toFixed(1)),
+      });
+
+      const limitTotalAmountIn = ordersToFill.reduce(
+        (acc, order) => acc + order.amountIn,
+        0,
+      );
+
+      const limitTotalAmountOut = ordersToFill.reduce(
+        (acc, order) => acc + order.amountOut,
+        0,
+      );
+
+      if (currentPool.token0.name === sellTokenObj?.name) {
+        const afterPool: Pool = {
+          poolId: currentPool.poolId,
+          token0: currentPool.token0,
+          token1: currentPool.token1,
+          token0Amount: (
+            Number(currentPool.token0Amount) +
+            (sellAmount - limitTotalAmountIn)
+          ).toString(),
+          token1Amount: (
+            Number(currentPool.token1Amount) -
+            (bestAmountOut - limitTotalAmountOut)
+          ).toString(),
+          fee: currentPool.fee,
+          lpTokenSupply: currentPool.lpTokenSupply,
+        };
+
+        setNewPool(afterPool);
+      } else {
+        const afterPool: Pool = {
+          poolId: currentPool.poolId,
+          token0: currentPool.token0,
+          token1: currentPool.token1,
+          token0Amount: (
+            Number(currentPool.token0Amount) -
+            (bestAmountOut - limitTotalAmountOut)
+          ).toString(),
+          token1Amount: (
+            Number(currentPool.token1Amount) +
+            (sellAmount - limitTotalAmountIn)
+          ).toString(),
+          fee: currentPool.fee,
+          lpTokenSupply: currentPool.lpTokenSupply,
+        };
+
+        setNewPool(afterPool);
+      }
+    } else {
+      setlimitState({
+        execute: false,
+        ordersToFill: [],
+        bestAmountOut: 0,
+        newPriceImpact: 0,
+      });
+
+      if (currentPool.token0.name === sellTokenObj?.name) {
+        const afterPool: Pool = {
+          poolId: currentPool.poolId,
+          token0: currentPool.token0,
+          token1: currentPool.token1,
+          token0Amount: (
+            Number(currentPool.token0Amount) + sellAmount
+          ).toString(),
+          token1Amount: (
+            Number(currentPool.token1Amount) - amountOut
+          ).toString(),
+          fee: currentPool.fee,
+          lpTokenSupply: currentPool.lpTokenSupply,
+        };
+
+        setNewPool(afterPool);
+      } else {
+        const afterPool: Pool = {
+          poolId: currentPool.poolId,
+          token0: currentPool.token0,
+          token1: currentPool.token1,
+          token0Amount: (
+            Number(currentPool.token0Amount) - amountOut
+          ).toString(),
+          token1Amount: (
+            Number(currentPool.token1Amount) + sellAmount
+          ).toString(),
+          fee: currentPool.fee,
+          lpTokenSupply: currentPool.lpTokenSupply,
+        };
+
+        setNewPool(afterPool);
+      }
+    }
+
+    setState({
+      ...state,
+      buyAmount: amountOut,
+      priceImpact: priceImpact.toFixed(2),
+    });
+  }, [
+    state.sellToken,
+    state.buyToken,
+    state.sellAmount,
+    hasMounted,
+    poolStore.poolList,
+    chainStore,
+    limitStore,
+    currentPool,
+    sellTokenObj,
+    buyTokenObj,
   ]);
 
   const handleSubmit = async () => {
-    console.log(state);
-
-    let sellToken = poolStore.tokenList.find(
-      (token) => token.name === state.sellToken,
-    );
-    let buyToken = poolStore.tokenList.find(
-      (token) => token.name === state.buyToken,
-    );
+    let sellToken = sellTokenObj;
+    let buyToken = buyTokenObj;
 
     if (sellToken?.name === buyToken?.name) {
       toast({
@@ -247,18 +265,15 @@ export default function Swap() {
       return;
     }
     const poolModule = client.client.runtime.resolve("PoolModule");
+    const sellAmountNum = parseFloat(state.sellAmount);
+    if (isNaN(sellAmountNum) || sellAmountNum <= 0) return;
+
     if (limitState.execute) {
       const tokenIn = TokenId.from(sellToken?.tokenId);
       const tokenOut = TokenId.from(buyToken?.tokenId);
-      const amountIn = Balance.from(state.sellAmount * Number(DECIMALS));
+      const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
       const amountOut = Balance.from(Math.floor(limitState.bestAmountOut));
       const orderbundle = OrderBundle.empty();
-
-      console.log("tokenIn", tokenIn.toString());
-      console.log("tokenOut", tokenOut.toString());
-      console.log("amountIn", amountIn.toString());
-      console.log("amountOut", amountOut.toString());
-      console.log("ordersToFill", limitState.ordersToFill);
 
       for (
         let i = 0;
@@ -266,12 +281,6 @@ export default function Swap() {
         i++
       ) {
         orderbundle.bundle[i] = Field.from(limitState.ordersToFill[i].orderId);
-      }
-      console.log(amountIn.toString(), amountOut.toString());
-      console.log(Poseidon.hash([tokenIn, tokenOut]));
-
-      for (let i = 0; i < 10; i++) {
-        console.log(orderbundle.bundle[i].toString());
       }
 
       const tx = await client.client.transaction(
@@ -289,16 +298,19 @@ export default function Swap() {
       await tx.sign();
       await tx.send();
 
-      //@ts-ignore
-      walletStore.addPendingTransaction(tx.transaction);
+      if (tx.transaction instanceof PendingTransaction)
+        walletStore.addPendingTransaction(tx.transaction);
+      else {
+        toast({
+          title: "Transaction failed",
+          description: "Please try again",
+        });
+      }
     } else {
       const tokenIn = TokenId.from(sellToken?.tokenId);
       const tokenOut = TokenId.from(buyToken?.tokenId);
-      const amountIn = Balance.from(state.sellAmount * Number(DECIMALS));
+      const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
       const amountOut = Balance.from(Math.floor(state.buyAmount));
-
-      console.log(amountIn.toString(), amountOut.toString());
-      console.log(Poseidon.hash([tokenIn, tokenOut]));
 
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),
@@ -310,8 +322,21 @@ export default function Swap() {
       await tx.sign();
       await tx.send();
 
-      //@ts-ignore
-      walletStore.addPendingTransaction(tx.transaction);
+      if (tx.transaction instanceof PendingTransaction)
+        walletStore.addPendingTransaction(tx.transaction);
+      else {
+        toast({
+          title: "Transaction failed",
+          description: "Please try again",
+        });
+      }
+    }
+  };
+
+  const handleSellAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setState({ ...state, sellAmount: value });
     }
   };
 
@@ -328,14 +353,10 @@ export default function Swap() {
             <Label className="text-custom-input px-3 text-sm">
               Sell
               <CustomInput
-                value={state.sellAmount ? state.sellAmount : ""}
-                onChange={(e) => {
-                  setState({ ...state, sellAmount: Number(e.target.value) });
-                }}
+                value={state.sellAmount}
+                onChange={handleSellAmountChange}
                 placeholder={"0"}
                 pattern="^[0-9]*[.,]?[0-9]*$"
-                minLength={1}
-                maxLength={40}
                 inputMode="decimal"
               />
             </Label>
@@ -347,7 +368,6 @@ export default function Swap() {
               }}
             >
               <SelectTrigger className=" w-60 rounded-2xl">
-                {/* <img src={`/${state.sellToken}.png`} className=" h-4 w-4" /> */}
                 <SelectValue placeholder="Select a token to swap" />
               </SelectTrigger>
 
@@ -404,20 +424,22 @@ export default function Swap() {
             <Label className="text-custom-input px-3 text-sm">
               Buy
               <CustomInput
-                value={Number((state.buyAmount / Number(DECIMALS)).toFixed(2))}
+                value={
+                  state.buyAmount
+                    ? (state.buyAmount / Number(DECIMALS)).toString()
+                    : ""
+                }
                 readOnly
                 placeholder={"0"}
                 pattern="^[0-9]*[.,]?[0-9]*$"
-                minLength={1}
-                maxLength={40}
                 inputMode="decimal"
-                type="number"
+                type="text"
                 className=" cursor-default"
               />
               {limitState.execute ? (
                 <p className=" text-xl text-green-600">
                   <span className=" text-xs">With LimitSwap:</span>{" "}
-                  {(limitState.bestAmountOut / Number(DECIMALS)).toFixed(2)}
+                  {(limitState.bestAmountOut / Number(DECIMALS)).toFixed(6)}
                 </p>
               ) : null}
               <p
@@ -465,7 +487,7 @@ export default function Swap() {
             className="mt-6 w-full rounded-2xl"
             disabled={!wallet || !pool}
             onClick={() => {
-              wallet ?? onConnectWallet();
+              wallet ?? walletStore.connect();
               wallet && handleSubmit();
             }}
           >

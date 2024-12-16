@@ -1,5 +1,6 @@
 import { LimitState, useLimitStore } from "@/lib/stores/limitStore";
 import { ChainState, useChainStore } from "@/lib/stores/chain";
+import { PoolState } from "@/lib/stores/poolStore";
 
 export const calculateWithLimitOrders = (
   buyToken: Token,
@@ -80,8 +81,9 @@ export const calculateSwap = (
   poolBuyTokenReserve: number,
   poolSellTokenReserve: number,
   sellAmount: number,
+  poolFee: number = 3,
 ) => {
-  const amountInWithFee = sellAmount * 997;
+  const amountInWithFee = sellAmount * (1000 - poolFee);
 
   const numerator = poolBuyTokenReserve * poolSellTokenReserve * 1000;
   const denominator = poolSellTokenReserve * 1000 + amountInWithFee;
@@ -96,3 +98,25 @@ export const calculateSwap = (
     priceImpact,
   };
 };
+
+export function findPool(
+  sellTokenName: string,
+  buyTokenName: string,
+  poolStore: PoolState,
+): [Token | null, Token | null, Pool | null] {
+  let sellToken =
+    poolStore.tokenList.find((token) => token.name === sellTokenName) ?? null;
+  let buyToken =
+    poolStore.tokenList.find((token) => token.name === buyTokenName) ?? null;
+  const pool =
+    poolStore.poolList.find((pool) => {
+      return (
+        (pool.token0.name === sellToken?.name &&
+          pool.token1.name === buyToken?.name) ||
+        (pool.token0.name === buyToken?.name &&
+          pool.token1.name === sellToken?.name)
+      );
+    }) ?? null;
+
+  return [sellToken, buyToken, pool];
+}
