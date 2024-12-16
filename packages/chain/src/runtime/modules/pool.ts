@@ -112,6 +112,9 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
 
         const currentPool = await this.pools.get(poolIdHash);
         assert(currentPool.isSome, "Pool does not exist");
+
+        assert(tokenAmountA.greaterThan(Balance.from(0)), "Token A must be greater than 0");
+        assert(tokenAmountB.greaterThan(Balance.from(0)), "Token B must be greater than 0");
         assert(lpRequestedAmount.greaterThan(Balance.from(0)), "LP tokens must be greater than 0");
 
         const lpTotal = await this.balances.getCirculatingSupply(poolIdHash);
@@ -120,6 +123,9 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
 
         const reserveA = await this.balances.getBalance(tokenA, poolAccount);
         const reserveB = await this.balances.getBalance(tokenB, poolAccount);
+
+        assert(reserveA.greaterThan(Balance.from(0)), "Invalid reserve A");
+        assert(reserveB.greaterThan(Balance.from(0)), "Invalid reserve B");
 
         // do we need this assertion?
         // assert(tokenAmountA.mul(reserveB).equals(tokenAmountB.mul(reserveA)), "Invalid ratio");
@@ -144,20 +150,16 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
             console.log("lpRequestedAmount value", lpRequestedAmount.value.toString());
         });
 
-        const respectToA = Balance.Safe.fromField(
-            tokenAmountA.value.mul(lpTotal.value).div(reserveA.value)
-        );
+        const respectToA = tokenAmountA.value.mul(lpTotal.value);
 
-        const respectToB = Balance.Safe.fromField(
-            tokenAmountB.value.mul(lpTotal.value).div(reserveB.value)
-        );
+        const respectToB = tokenAmountB.value.mul(lpTotal.value);
 
         assert(
-            lpRequestedAmount.lessThanOrEqual(respectToA),
+            lpRequestedAmount.value.mul(reserveA.value).lessThanOrEqual(respectToA),
             "Invalid LP requested amount respect to A"
         );
         assert(
-            lpRequestedAmount.lessThanOrEqual(respectToB),
+            lpRequestedAmount.value.mul(reserveB.value).lessThanOrEqual(respectToB),
             "Invalid LP requested amount respect to B"
         );
 
