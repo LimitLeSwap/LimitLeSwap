@@ -92,7 +92,9 @@ export default function CreatePool() {
       );
       const lpRequested = Balance.from(
         BigInt(
-          Math.floor(Math.sqrt(tokenAmountA * tokenAmountB) * Number(DECIMALS)),
+          Math.floor(
+            Math.sqrt(tokenAmountA * tokenAmountB) * Number(DECIMALS) - 1000,
+          ),
         ),
       );
 
