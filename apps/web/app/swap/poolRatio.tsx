@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/chart";
 import { LabelList, Pie, PieChart } from "recharts";
 import { DECIMALS } from "@/lib/constants";
-import { Pool } from "@/lib/stores/poolStore";
 
 const chartConfig = {
   amount: {

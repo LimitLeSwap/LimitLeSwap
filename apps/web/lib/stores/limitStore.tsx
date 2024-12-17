@@ -4,10 +4,12 @@ import { useClientStore } from "./client";
 import { useWalletStore } from "./wallet";
 import { useChainStore } from "./chain";
 import { useEffect, useRef } from "react";
-import { Field, Provable, PublicKey, Struct } from "o1js";
+import { Field, Provable, Struct } from "o1js";
 import isEqual from "lodash.isequal";
+import { Balance, TokenId } from "@proto-kit/library";
 
 export const MAX_ORDER_SIZE = 10;
+export const MAX_ROUTE_SIZE = 5;
 
 export class OrderBundle extends Struct({
   bundle: Provable.Array(Field, MAX_ORDER_SIZE),
@@ -15,6 +17,48 @@ export class OrderBundle extends Struct({
   public static empty(): OrderBundle {
     const bundle = Array<Field>(10).fill(Field.from(0));
     return new OrderBundle({ bundle });
+  }
+}
+
+export class Step extends Struct({
+  tokenIn: TokenId,
+  tokenOut: TokenId,
+  amountIn: Balance,
+  amountOut: Balance,
+  limitOrders: OrderBundle,
+}) {
+  public static empty(): Step {
+    return new Step({
+      tokenIn: TokenId.from(0),
+      tokenOut: TokenId.from(0),
+      amountIn: Balance.from(0),
+      amountOut: Balance.from(0),
+      limitOrders: OrderBundle.empty(),
+    });
+  }
+  public static from(
+    tokenIn: TokenId,
+    tokenOut: TokenId,
+    amountIn: Balance,
+    amountOut: Balance,
+    limitOrders: OrderBundle,
+  ) {
+    return new Step({
+      tokenIn,
+      tokenOut,
+      amountIn,
+      amountOut,
+      limitOrders,
+    });
+  }
+}
+
+export class Route extends Struct({
+  path: Provable.Array(Step, MAX_ROUTE_SIZE),
+}) {
+  public static empty(): Route {
+    const path = Array<Step>(10).fill(Step.empty());
+    return new Route({ path });
   }
 }
 
@@ -66,17 +110,6 @@ export const useObserveOrders = () => {
         if (!order) {
           continue;
         }
-
-        // limitOrders.push({
-        //   orderId: i,
-        //   expiration: Field.fromJSON(order.expiration).toString(),
-        //   isActive: Bool.fromJSON(order.isActive).toBoolean(),
-        //   tokenIn: Field.fromJSON(order.tokenIn).toString(),
-        //   tokenInAmount: Field.fromJSON(order.tokenInAmount).toString(),
-        //   tokenOut: Field.fromJSON(order.tokenOut).toString(),
-        //   tokenOutAmount: Field.fromJSON(order.tokenOutAmount).toString(),
-        //   owner: PublicKey.fromJSON(order.owner.toJSON()),
-        // });
 
         limitOrders.push({
           orderId: i,

@@ -246,29 +246,62 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         await this.pools.set(poolIdHash, updatedPool);
     }
 
-    // Todo inspect this function
     @runtimeMethod()
     private async rawSwap(
         tokenIn: TokenId,
         tokenOut: TokenId,
         amountIn: Balance,
-        amountOut: Balance
+        amountOut: Balance,
+        isFillerStep: Bool
     ) {
-        assert(amountIn.greaterThan(Balance.from(0)), "AmountIn must be greater than 0");
-        assert(amountOut.greaterThan(Balance.from(0)), "AmountOut must be greater than 0");
+        Provable.asProver(() => {
+            console.log("isFillerStep", isFillerStep.toBoolean());
+            console.log(
+                "assert-1",
+                amountIn.greaterThan(Balance.from(0)).or(isFillerStep).toBoolean()
+            );
+            console.log(
+                "assert-2",
+                amountOut.greaterThan(Balance.from(0)).or(isFillerStep).toBoolean()
+            );
+            console.log("assert-3", tokenIn.equals(tokenOut).not().or(isFillerStep).toBoolean());
+        });
 
-        const poolId = PoolId.from(tokenIn, tokenOut);
+        assert(
+            amountIn.greaterThan(Balance.from(0)).or(isFillerStep),
+            "AmountIn must be greater than 0"
+        );
+        assert(
+            amountOut.greaterThan(Balance.from(0)).or(isFillerStep),
+            "AmountOut must be greater than 0"
+        );
+
+        assert(tokenIn.equals(tokenOut).not().or(isFillerStep), "Tokens must be different");
+        const poolId = PoolId.rawFrom(tokenIn, tokenOut);
         const poolIdHash = poolId.getPoolIdHash();
         const poolAccount = poolId.getPoolAccount();
 
         const currentPool = await this.pools.get(poolIdHash);
-        assert(currentPool.isSome, "Pool does not exist");
+        Provable.asProver(() => {
+            console.log("assert-4", currentPool.isSome.or(isFillerStep).toBoolean());
+        });
+        assert(currentPool.isSome.or(isFillerStep), "Pool does not exist");
 
         const senderBalance = await this.balances.getBalance(
             tokenIn,
             this.transaction.sender.value
         );
-        assert(senderBalance.greaterThanOrEqual(amountIn), "Not enough token to swap");
+
+        Provable.asProver(() => {
+            console.log(
+                "assert-5",
+                senderBalance.greaterThanOrEqual(amountIn).or(isFillerStep).toBoolean()
+            );
+        });
+        assert(
+            senderBalance.greaterThanOrEqual(amountIn).or(isFillerStep),
+            "Not enough token to swap"
+        );
 
         let reserveIn = await this.balances.getBalance(tokenIn, poolAccount);
         let reserveOut = await this.balances.getBalance(tokenOut, poolAccount);
@@ -284,6 +317,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
 
         Provable.asProver(() => {
             console.log("kPrev", kPrev.toString());
+            console.log("assert-6", amountOut.lessThanOrEqual(reserveOut).toBoolean());
         });
 
         assert(amountOut.lessThanOrEqual(reserveOut), "Not enough token in pool");
@@ -339,7 +373,7 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         assert(amountIn.greaterThan(Balance.from(0)), "AmountIn must be greater than 0");
         assert(amountOut.greaterThan(Balance.from(0)), "AmountOut must be greater than 0");
 
-        await this.rawSwap(tokenIn, tokenOut, amountIn, amountOut);
+        await this.rawSwap(tokenIn, tokenOut, amountIn, amountOut, Bool(false));
     }
 
     @runtimeMethod()
@@ -350,11 +384,18 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         amountOut: Balance,
         limitOrders: OrderBundle
     ) {
-        const poolId = PoolId.from(tokenIn, tokenOut);
+        const isFillerStep = tokenIn
+            .equals(TokenId.from(0))
+            .and(tokenOut.equals(TokenId.from(0)))
+            .and(amountIn.equals(Balance.from(0)))
+            .and(amountOut.equals(Balance.from(0)));
+
+        assert(tokenIn.equals(tokenOut).not().or(isFillerStep), "Tokens must be different");
+        const poolId = PoolId.rawFrom(tokenIn, tokenOut);
         const poolIdHash = poolId.getPoolIdHash();
 
         const currentPool = await this.pools.get(poolIdHash);
-        assert(currentPool.isSome, "Pool does not exist");
+        assert(currentPool.isSome.or(isFillerStep), "Pool does not exist");
 
         const senderBalance = await this.balances.getBalance(
             tokenIn,
@@ -421,6 +462,6 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
             console.log("final remainingAmountIn", remainingAmountIn.toString());
             console.log("final remainingAmountOut", remainingAmountOut.toString());
         });
-        await this.rawSwap(tokenIn, tokenOut, remainingAmountIn, remainingAmountOut);
+        await this.rawSwap(tokenIn, tokenOut, remainingAmountIn, remainingAmountOut, isFillerStep);
     }
 }

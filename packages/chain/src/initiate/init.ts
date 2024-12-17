@@ -1,4 +1,4 @@
-import { Field, PrivateKey, UInt64 } from "o1js";
+import { Field, PrivateKey, PublicKey, UInt64 } from "o1js";
 import { Balance, UInt64 as PUInt64, TokenId } from "@proto-kit/library";
 import { client as appChain } from "../environments/client.config";
 import { InMemorySigner } from "@proto-kit/sdk";
@@ -12,6 +12,9 @@ const startClient = async () => {
 
     const signer = PrivateKey.random();
     const sender = signer.toPublicKey();
+
+    const wallet = PublicKey.fromBase58("B62qnBa7PPM4VrE3LqXx7HjDWPDTs1ePdV7hwwuSkmT31Lrr1CQpJna");
+
     await appChain.start();
     const inMemorySigner = new InMemorySigner();
 
@@ -33,9 +36,17 @@ const startClient = async () => {
                 await balances.createToken(tokenId);
             });
 
-            tx.transaction!.nonce = UInt64.from(i);
+            tx.transaction!.nonce = UInt64.from(2 * i);
             tx.transaction = tx.transaction?.sign(publisherKey);
             await tx.send();
+
+            const mintTx = await appChain.transaction(publisher, async () => {
+                await balances.mintToken(tokenId, wallet, PUInt64.from(1000000000));
+            });
+
+            mintTx.transaction!.nonce = UInt64.from(2 * i + 1);
+            mintTx.transaction = mintTx.transaction?.sign(publisherKey);
+            await mintTx.send();
         } catch (e) {
             console.log(e);
         }

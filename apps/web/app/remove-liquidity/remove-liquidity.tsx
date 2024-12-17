@@ -25,11 +25,12 @@ import React, { useEffect, useState } from "react";
 
 export default function RemoveLiq() {
   const walletStore = useWalletStore();
-  const wallet = walletStore.wallet;
-  const onConnectWallet = walletStore.connect;
-  const poolStore = usePoolStore();
   const hasMounted = useHasMounted();
+  const poolStore = usePoolStore();
   const client = useClientStore();
+
+  const wallet = walletStore.wallet;
+
   const { toast } = useToast();
 
   const [position, setPosition] = useState<Position | null>(null);
@@ -115,6 +116,7 @@ export default function RemoveLiq() {
       });
     }
   };
+
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
       <div className="flex w-full max-w-[470px] sm:w-[470px]">
@@ -279,7 +281,7 @@ export default function RemoveLiq() {
             className="mt-6 w-full rounded-2xl"
             disabled={!wallet || !position}
             onClick={() => {
-              wallet ?? onConnectWallet();
+              wallet ?? walletStore.connect();
               wallet && handleSubmit();
             }}
           >
