@@ -44,6 +44,39 @@ declare global {
     owner: PublicKey;
   }
 
+  interface RouteToken {
+    name: string;
+    tokenId: string;
+  }
+
+  interface PoolStoreState {
+    tokenList: RouteToken[];
+    poolList: Pool[];
+    positionList: any[];
+  }
+
+  interface LimitStoreState {
+    limitOrders: LimitOrder[];
+  }
+
+  interface RouteStep {
+    tokenIn: RouteToken;
+    tokenOut: RouteToken;
+    orders: {
+      orderId: number;
+      tokenInAmount: number;
+      tokenOutAmount: number;
+    }[];
+    poolSwap: boolean;
+    amountIn: number;
+    amountOut: number;
+  }
+
+  interface CompleteRoute {
+    steps: RouteStep[];
+    finalAmountOut: number;
+  }
+
   declare var mina:
     | {
         requestAccounts: () => Promise<string[]>;

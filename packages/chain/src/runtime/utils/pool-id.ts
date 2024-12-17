@@ -28,6 +28,15 @@ export class PoolId extends Struct({
         });
     }
 
+    public static rawFrom(token0: TokenId, token1: TokenId): PoolId {
+        const smallerTokenId = Provable.if(token0.lessThan(token1), token0, token1);
+        const largerTokenId = Provable.if(token0.lessThan(token1), token1, token0);
+        return new PoolId({
+            token0: smallerTokenId,
+            token1: largerTokenId,
+        });
+    }
+
     /**
      * Returns the pool id for the pool object.
      * @returns The pool id.

@@ -91,7 +91,7 @@ export default function Web3wallet({
       <div className="hidden sm:flex">
         <Button
           loading={loading}
-          className="rounded-2xl sm:w-24 md:w-28 xl:w-32"
+          className="sm:w-26 md:w-30 xl:w-34 rounded-2xl"
           onClick={handleConnectWallet}
         >
           <div className="sm:text-xs md:text-sm xl:text-base">
