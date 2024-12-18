@@ -21,67 +21,87 @@ datasource db {
 
 model Block {
   height Int @id
+  // balances Balance[]
+  // swaps    Swap[]
 }
 
 model Balance {
   height  Int
+  tokenId String
   address String
-  amount  String
+  amount  BigInt
+  // block   Block @relation(fields: [height], references: [height])
+  // token   Token @relation(fields: [tokenId], references: [tokenId])
 
-  @@id([height, address])
+  @@id([height, address, tokenId])
+  // @@index([address])
+  // @@index([tokenId])
 }
 
 model Pool {
   poolId String @id
   token0Id String
   token1Id String
-  token0Amount String
-  token1Amount String
-  totalLpAmount String
-  feePercentage String
+  token0Amount BigInt
+  token1Amount BigInt
+  totalLpAmount BigInt
+  feePercentage Int
   createdAt DateTime @default(now())
+
+  // swaps    Swap[]
+  // orders   LimitOrder[]
 }
 
 model Swap {
   swapId String @id
   poolId String
-  token0Amount String
-  token1Amount String
+  token0Amount BigInt
+  token1Amount BigInt
   token0In1Out Boolean
-  token0Price String
-  token1Price String
+  token0Price Decimal @db.Decimal(38, 18)
+  token1Price Decimal @db.Decimal(38, 18)
   blockHeight Int
-  sender String
+  owner String
   createdAt DateTime @default(now())
+
+  // pool   Pool   @relation(fields: [poolId], references: [poolId])
+  // block  Block  @relation(fields: [blockHeight], references: [height])
 }
 
 model Token {
   tokenId String @id
-  deciamls Int
+  decimals Int
+  totalSupply BigInt
   createdAt DateTime @default(now())
+  
+  // balances Balance[]
 }
 
 model LimitOrder {
   orderId String @id
   poolId String
-  token0Amount String
-  token1Amount String
-  token0Price String
-  token1Price String
+  token0Amount BigInt
+  token1Amount BigInt
+  token0Price Decimal @db.Decimal(38, 18)
+  token1Price Decimal @db.Decimal(38, 18)
   token0In1Out Boolean
   owner String
   active Boolean
   expireBlock Int
   createdAt DateTime @default(now())
+
+  // pool Pool @relation(fields: [poolId], references: [poolId])
+
 }
 
+// Todo: probably need to add more fields
 model TokenTrade {
-  tradeId String @id
-  poolId String
-  token0Amount String
-  token1Amount String
-  token0Price String
-  token1Price String
-  token0In1Out Boolean
-  createdAt DateTime @default(now())
+  tradeId       String @id
+  poolId        String
+  token0Amount  Decimal @db.Decimal(38, 18)
+  token1Amount  Decimal @db.Decimal(38, 18)
+  token0Price   Decimal @db.Decimal(38, 18)
+  token1Price   Decimal @db.Decimal(38, 18)
+  token0In1Out  Boolean
+  createdAt     DateTime @default(now())
 }
