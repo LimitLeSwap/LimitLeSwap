@@ -30,3 +30,58 @@ model Balance {
 
   @@id([height, address])
 }
+
+model Pool {
+  poolId String @id
+  token0Id String
+  token1Id String
+  token0Amount String
+  token1Amount String
+  totalLpAmount String
+  feePercentage String
+  createdAt DateTime @default(now())
+}
+
+model Swap {
+  swapId String @id
+  poolId String
+  token0Amount String
+  token1Amount String
+  token0In1Out Boolean
+  token0Price String
+  token1Price String
+  blockHeight Int
+  sender String
+  createdAt DateTime @default(now())
+}
+
+model Token {
+  tokenId String @id
+  deciamls Int
+  createdAt DateTime @default(now())
+}
+
+model LimitOrder {
+  orderId String @id
+  poolId String
+  token0Amount String
+  token1Amount String
+  token0Price String
+  token1Price String
+  token0In1Out Boolean
+  owner String
+  active Boolean
+  expireBlock Int
+  createdAt DateTime @default(now())
+}
+
+model TokenTrade {
+  tradeId String @id
+  poolId String
+  token0Amount String
+  token1Amount String
+  token0Price String
+  token1Price String
+  token0In1Out Boolean
+  createdAt DateTime @default(now())
+}
