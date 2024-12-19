@@ -20,12 +20,7 @@ import { Balance, TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
 import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
-import PoolRatio from "./poolRatio";
-import {
-  calculateSwap,
-  calculateWithLimitOrders,
-  findPool,
-} from "./utils/swapFunctions";
+import { findPool } from "./utils/swapFunctions";
 import { Route, Step } from "@/lib/stores/limitStore";
 import { OrderBundle, useLimitStore } from "@/lib/stores/limitStore";
 import { useChainStore } from "@/lib/stores/chain";
@@ -400,10 +395,10 @@ export default function Swap() {
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
-            disabled={!wallet || !route}
+            disabled={client.loading}
             onClick={() => {
               wallet ?? walletStore.connect();
-              wallet && handleSubmit();
+              wallet && route && handleSubmit();
             }}
           >
             {wallet
@@ -414,38 +409,6 @@ export default function Swap() {
                 : "Pool Not Found"
               : "Connect wallet"}
           </Button>
-
-          {/* {wallet && pool ? (
-            seePoolDetails && pool ? (
-              <>
-                <div className="mt-2 flex w-full justify-start px-2">
-                  <p
-                    className=" text-custom-input cursor-pointer text-sm"
-                    onClick={() => {
-                      setSeePoolDetails(false);
-                    }}
-                  >
-                    Hide Impact Chart
-                  </p>
-                </div>
-                <PoolRatio
-                  pool={pool}
-                  newPool={newPool ? newPool : undefined}
-                />
-              </>
-            ) : (
-              <div className="mt-2 flex w-full justify-start px-2">
-                <p
-                  className=" text-custom-input cursor-pointer text-sm"
-                  onClick={() => {
-                    setSeePoolDetails(true);
-                  }}
-                >
-                  Show Impact Chart
-                </p>
-              </div>
-            )
-          ) : null} */}
         </Card>
       </div>
     </div>

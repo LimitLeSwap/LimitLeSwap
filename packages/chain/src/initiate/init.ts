@@ -5,7 +5,10 @@ import { InMemorySigner } from "@proto-kit/sdk";
 import { Balances } from "../runtime/modules/balances";
 
 const startClient = async () => {
-    const publisherKey = PrivateKey.random();
+    // you are seeing this because I was too lazy to use .env. steal this key if you want :p
+    const publisherKey = PrivateKey.fromBase58(
+        "EKEot89cv2Uq217QaeePEJwoXyVdck7haEwFqJxoSKXmvUntfpTw"
+    );
     const publisher = publisherKey.toPublicKey();
 
     let balances: Balances;
@@ -27,24 +30,35 @@ const startClient = async () => {
 
     console.log(publisher.toBase58());
 
+    let tokens = [];
+
     balances = appChain.runtime.resolve("Balances");
     for (let i = 0; i < 4; i++) {
         try {
             const tokenId = TokenId.random();
+            tokens.push(tokenId);
             console.log("Creating token: ", tokenId.toBigInt());
             const tx = await appChain.transaction(publisher, async () => {
                 await balances.createToken(tokenId);
             });
 
-            tx.transaction!.nonce = UInt64.from(2 * i);
+            tx.transaction!.nonce = UInt64.from(3 * i);
             tx.transaction = tx.transaction?.sign(publisherKey);
             await tx.send();
 
-            const mintTx = await appChain.transaction(publisher, async () => {
+            let mintTx = await appChain.transaction(publisher, async () => {
                 await balances.mintToken(tokenId, wallet, PUInt64.from(1000000000));
             });
 
-            mintTx.transaction!.nonce = UInt64.from(2 * i + 1);
+            mintTx.transaction!.nonce = UInt64.from(3 * i + 1);
+            mintTx.transaction = mintTx.transaction?.sign(publisherKey);
+            await mintTx.send();
+
+            mintTx = await appChain.transaction(publisher, async () => {
+                await balances.mintToken(tokenId, publisher, PUInt64.from(1000000000));
+            });
+
+            mintTx.transaction!.nonce = UInt64.from(3 * i + 2);
             mintTx.transaction = mintTx.transaction?.sign(publisherKey);
             await mintTx.send();
         } catch (e) {
@@ -53,6 +67,7 @@ const startClient = async () => {
     }
 
     const orderbook = appChain.runtime.resolve("OrderBook");
+    const pool = appChain.runtime.resolve("PoolModule");
     const tokenIn = await balances.tokens.get(Field.from(0));
     const tokenOut = await balances.tokens.get(Field.from(1));
     const amountIn = Balance.from(100);
@@ -63,7 +78,7 @@ const startClient = async () => {
         await balances.mintToken(tokenIn.value, publisher, PUInt64.from(100));
     });
 
-    tx.transaction!.nonce = UInt64.from(4);
+    tx.transaction!.nonce = UInt64.from(12);
     tx.transaction = tx.transaction?.sign(publisherKey);
     await tx.send();
     tx = await appChain.transaction(publisher, async () => {
@@ -76,7 +91,7 @@ const startClient = async () => {
         );
     });
     console.log("Creating limit order");
-    tx.transaction!.nonce = UInt64.from(5);
+    tx.transaction!.nonce = UInt64.from(13);
     tx.transaction = tx.transaction?.sign(publisherKey);
     await tx.send();
 
@@ -84,7 +99,39 @@ const startClient = async () => {
         await orderbook.cancelLimitOrder(Field.from(0));
     });
     console.log("Canceling limit order");
-    tx.transaction!.nonce = UInt64.from(6);
+    tx.transaction!.nonce = UInt64.from(14);
+    tx.transaction = tx.transaction?.sign(publisherKey);
+    await tx.send();
+
+    tx = await appChain.transaction(publisher, async () => {
+        await pool.createPool(
+            tokens[0],
+            tokens[1],
+            PUInt64.from(300000000),
+            PUInt64.from(500000000),
+            publisher,
+            PUInt64.from(2),
+            Balance.from(BigInt(Math.floor(Math.sqrt(300 * 500) * Number(1000000) - 1000)))
+        );
+    });
+    console.log("Creating pool");
+    tx.transaction!.nonce = UInt64.from(15);
+    tx.transaction = tx.transaction?.sign(publisherKey);
+    await tx.send();
+
+    tx = await appChain.transaction(publisher, async () => {
+        await pool.createPool(
+            tokens[1],
+            tokens[2],
+            PUInt64.from(200000000),
+            PUInt64.from(300000000),
+            publisher,
+            PUInt64.from(2),
+            Balance.from(BigInt(Math.floor(Math.sqrt(200 * 300) * Number(1000000) - 1000)))
+        );
+    });
+    console.log("Creating pool 2");
+    tx.transaction!.nonce = UInt64.from(16);
     tx.transaction = tx.transaction?.sign(publisherKey);
     await tx.send();
 };
