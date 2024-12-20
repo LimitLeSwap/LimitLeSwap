@@ -20,12 +20,12 @@ import { Balance, TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
 import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
-import { findPool } from "./utils/swapFunctions";
 import { Route, Step } from "@/lib/stores/limitStore";
 import { OrderBundle, useLimitStore } from "@/lib/stores/limitStore";
 import { useChainStore } from "@/lib/stores/chain";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { findBestRoute } from "./utils/findRoute";
+import { findPool } from "@/lib/common";
 
 export default function Swap() {
   const walletStore = useWalletStore();
@@ -46,6 +46,7 @@ export default function Swap() {
 
   const [seePoolDetails, setSeePoolDetails] = useState(false);
   const [newPool, setNewPool] = useState<Pool | null>(null);
+  const [waitApproval, setWaitApproval] = useState(false);
   const [route, setRoute] = useState<CompleteRoute | null>(null);
   const [limitState, setlimitState] = useState<{
     execute: boolean;
@@ -124,51 +125,106 @@ export default function Swap() {
   ]);
 
   const handleSubmit = async () => {
-    let sellToken = sellTokenObj;
-    let buyToken = buyTokenObj;
+    try {
+      setWaitApproval(true);
+      let sellToken = sellTokenObj;
+      let buyToken = buyTokenObj;
 
-    if (sellToken?.name === buyToken?.name) {
-      toast({
-        title: "Invalid token selection",
-        description: "Please select different tokens to swap",
-      });
-      return;
-    }
+      if (sellToken?.name === buyToken?.name) {
+        toast({
+          title: "Invalid token selection",
+          description: "Please select different tokens to swap",
+        });
+        return;
+      }
 
-    if (!route || !sellToken || !buyToken || !wallet || !client.client) {
-      return;
-    }
-    const poolModule = client.client.runtime.resolve("PoolModule");
-    const routerModule = client.client.runtime.resolve("RouterModule");
-    const sellAmountNum = parseFloat(state.sellAmount);
-    if (isNaN(sellAmountNum) || sellAmountNum <= 0) return;
+      if (!route || !sellToken || !buyToken || !wallet || !client.client) {
+        return;
+      }
+      const poolModule = client.client.runtime.resolve("PoolModule");
+      const routerModule = client.client.runtime.resolve("RouterModule");
+      const sellAmountNum = parseFloat(state.sellAmount);
+      if (isNaN(sellAmountNum) || sellAmountNum <= 0) return;
 
-    if (route.steps.length === 1) {
-      if (route.steps[0].orders.length > 0) {
-        const tokenIn = TokenId.from(sellToken?.tokenId);
-        const tokenOut = TokenId.from(buyToken?.tokenId);
-        const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
-        const amountOut = Balance.from(Math.floor(limitState.bestAmountOut));
-        const orderbundle = OrderBundle.empty();
-        for (
-          let i = 0;
-          limitState.ordersToFill && i < limitState.ordersToFill.length;
-          i++
-        ) {
-          orderbundle.bundle[i] = Field.from(
-            limitState.ordersToFill[i].orderId,
+      if (route.steps.length === 1) {
+        if (route.steps[0].orders.length > 0) {
+          const tokenIn = TokenId.from(sellToken?.tokenId);
+          const tokenOut = TokenId.from(buyToken?.tokenId);
+          const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
+          const amountOut = Balance.from(Math.floor(limitState.bestAmountOut));
+          const orderbundle = OrderBundle.empty();
+          for (
+            let i = 0;
+            limitState.ordersToFill && i < limitState.ordersToFill.length;
+            i++
+          ) {
+            orderbundle.bundle[i] = Field.from(
+              limitState.ordersToFill[i].orderId,
+            );
+          }
+          const tx = await client.client.transaction(
+            PublicKey.fromBase58(wallet),
+            async () => {
+              await poolModule.swapWithLimit(
+                tokenIn,
+                tokenOut,
+                amountIn,
+                amountOut,
+                orderbundle,
+              );
+            },
+          );
+          await tx.sign();
+          await tx.send();
+          if (tx.transaction instanceof PendingTransaction)
+            walletStore.addPendingTransaction(tx.transaction);
+          else {
+            throw new Error("Transaction failed");
+          }
+        } else {
+          const tokenIn = TokenId.from(sellToken?.tokenId);
+          const tokenOut = TokenId.from(buyToken?.tokenId);
+          const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
+          const amountOut = Balance.from(Math.floor(state.buyAmount));
+          const tx = await client.client.transaction(
+            PublicKey.fromBase58(wallet),
+            async () => {
+              await poolModule.swap(tokenIn, tokenOut, amountIn, amountOut);
+            },
+          );
+          await tx.sign();
+          await tx.send();
+          if (tx.transaction instanceof PendingTransaction)
+            walletStore.addPendingTransaction(tx.transaction);
+          else {
+            throw new Error("Transaction failed");
+          }
+        }
+      } else if (route.steps.length > 1) {
+        let tradeRoute = Route.empty();
+
+        for (let i = 0; i < route.steps.length; i++) {
+          const step = route.steps[i];
+
+          const limitOrders = OrderBundle.empty();
+
+          for (let j = 0; j < step.orders.length; j++) {
+            limitOrders.bundle[j] = Field.from(step.orders[j].orderId);
+          }
+
+          tradeRoute.path[i] = Step.from(
+            TokenId.from(step.tokenIn.tokenId),
+            TokenId.from(step.tokenOut.tokenId),
+            Balance.from(Math.floor(step.amountIn)),
+            Balance.from(Math.floor(step.amountOut)),
+            limitOrders,
           );
         }
+
         const tx = await client.client.transaction(
           PublicKey.fromBase58(wallet),
           async () => {
-            await poolModule.swapWithLimit(
-              tokenIn,
-              tokenOut,
-              amountIn,
-              amountOut,
-              orderbundle,
-            );
+            await routerModule.tradeRoute(tradeRoute);
           },
         );
         await tx.sign();
@@ -176,70 +232,17 @@ export default function Swap() {
         if (tx.transaction instanceof PendingTransaction)
           walletStore.addPendingTransaction(tx.transaction);
         else {
-          toast({
-            title: "Transaction failed",
-            description: "Please try again",
-          });
-        }
-      } else {
-        const tokenIn = TokenId.from(sellToken?.tokenId);
-        const tokenOut = TokenId.from(buyToken?.tokenId);
-        const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
-        const amountOut = Balance.from(Math.floor(state.buyAmount));
-        const tx = await client.client.transaction(
-          PublicKey.fromBase58(wallet),
-          async () => {
-            await poolModule.swap(tokenIn, tokenOut, amountIn, amountOut);
-          },
-        );
-        await tx.sign();
-        await tx.send();
-        if (tx.transaction instanceof PendingTransaction)
-          walletStore.addPendingTransaction(tx.transaction);
-        else {
-          toast({
-            title: "Transaction failed",
-            description: "Please try again",
-          });
+          throw new Error("Transaction failed");
         }
       }
-    } else if (route.steps.length > 1) {
-      let tradeRoute = Route.empty();
-
-      for (let i = 0; i < route.steps.length; i++) {
-        const step = route.steps[i];
-
-        const limitOrders = OrderBundle.empty();
-
-        for (let j = 0; j < step.orders.length; j++) {
-          limitOrders.bundle[j] = Field.from(step.orders[j].orderId);
-        }
-
-        tradeRoute.path[i] = Step.from(
-          TokenId.from(step.tokenIn.tokenId),
-          TokenId.from(step.tokenOut.tokenId),
-          Balance.from(Math.floor(step.amountIn)),
-          Balance.from(Math.floor(step.amountOut)),
-          limitOrders,
-        );
-      }
-
-      const tx = await client.client.transaction(
-        PublicKey.fromBase58(wallet),
-        async () => {
-          await routerModule.tradeRoute(tradeRoute);
-        },
-      );
-      await tx.sign();
-      await tx.send();
-      if (tx.transaction instanceof PendingTransaction)
-        walletStore.addPendingTransaction(tx.transaction);
-      else {
-        toast({
-          title: "Transaction failed",
-          description: "Please try again",
-        });
-      }
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Transaction failed",
+        description: "Please try again",
+      });
+    } finally {
+      setWaitApproval(false);
     }
   };
 
@@ -395,19 +398,14 @@ export default function Swap() {
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
-            disabled={client.loading}
+            disabled={client.loading || waitApproval}
+            loading={client.loading || waitApproval}
             onClick={() => {
               wallet ?? walletStore.connect();
               wallet && route && handleSubmit();
             }}
           >
-            {wallet
-              ? route
-                ? limitState.execute
-                  ? "LimitLeSwap!"
-                  : "Swap"
-                : "Pool Not Found"
-              : "Connect wallet"}
+            {wallet ? "Swap" : "Connect wallet"}
           </Button>
         </Card>
       </div>

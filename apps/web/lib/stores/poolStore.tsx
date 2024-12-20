@@ -13,16 +13,15 @@ export interface PoolState {
   setPositionList: (positionList: Position[]) => void;
 }
 
-export const usePoolStore = create<PoolState, [["zustand/immer", never]]>(
-  immer((set) => ({
+export const usePoolStore = create<PoolState>()(
+  immer((set, get) => ({
     isSet: false,
     tokenList: [],
     poolList: [],
     positionList: [],
 
-    setTokenList: (_tokenList: Token[]) => set({ tokenList: _tokenList }),
-    setPoolList: (_poolList: Pool[]) => set({ poolList: _poolList }),
-    setPositionList: (_positionList: Position[]) =>
-      set({ positionList: _positionList }),
+    setTokenList: (tokenList) => set({ tokenList }),
+    setPoolList: (poolList) => set({ poolList }),
+    setPositionList: (positionList) => set({ positionList }),
   })),
 );

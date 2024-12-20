@@ -47,9 +47,9 @@ export default function MyOrders() {
     }
   };
   return (
-    <Card className="flex w-full flex-col rounded-2xl shadow-none">
+    <Card className="my-8 flex w-full flex-col rounded-2xl shadow-none">
       <CardHeader className="pb-2">
-        <CardTitle className="text-xl">My Orders</CardTitle>
+        <CardTitle className="text-xl">Active Orders</CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className=" h-40">

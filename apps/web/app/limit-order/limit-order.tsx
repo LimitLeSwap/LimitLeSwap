@@ -16,12 +16,13 @@ import { useWalletStore } from "@/lib/stores/wallet";
 import { ArrowUpDown } from "lucide-react";
 import { PublicKey, UInt64 } from "o1js";
 import { Balance, TokenId } from "@proto-kit/library";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import OrderBook from "@/components/orderBook";
 import MyOrders from "@/components/myOrders";
 import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { Card } from "@/components/ui/card";
+import { findPool } from "@/lib/common";
 
 export default function LimitOrder() {
   const walletStore = useWalletStore();
@@ -38,6 +39,8 @@ export default function LimitOrder() {
     rate: "",
     validForDays: 1,
   });
+
+  const [waitApproval, setWaitApproval] = useState(false);
 
   useEffect(() => {
     if (Number(state.sellAmount) > 0 && Number(state.buyAmount) > 0) {
@@ -56,71 +59,76 @@ export default function LimitOrder() {
     }
   }, [state.buyAmount, state.sellAmount]);
 
+  const [sellTokenObj, buyTokenObj] = useMemo(() => {
+    return findPool(state.sellToken, state.buyToken, poolStore);
+  }, [
+    state.sellToken,
+    state.buyToken,
+    poolStore.poolList,
+    poolStore.tokenList,
+  ]);
+
   const handleSubmit = async () => {
-    console.log(state);
+    try {
+      console.log(state);
+      setWaitApproval(true);
 
-    let sellToken = poolStore.tokenList.find(
-      (token) => token.name === state.sellToken,
-    );
-    let buyToken = poolStore.tokenList.find(
-      (token) => token.name === state.buyToken,
-    );
-
-    if (sellToken?.name === buyToken?.name) {
-      toast({
-        title: "Invalid token selection",
-        description: "Please select different tokens to swap",
-      });
-      return;
-    }
-
-    const sellAmount = state.sellAmount;
-    const buyAmount = state.buyAmount;
-    const validForDays = state.validForDays;
-
-    console.log({
-      sellToken,
-      buyToken,
-      sellAmount,
-      buyAmount,
-      validForDays,
-    });
-
-    if (client.client && wallet && sellToken && buyToken) {
-      const orderbook = client.client.runtime.resolve("OrderBook");
-      const tokenIn = TokenId.from(sellToken.tokenId);
-      const tokenOut = TokenId.from(buyToken.tokenId);
-      const amountIn = Balance.from(
-        BigInt(Number(sellAmount) * Number(DECIMALS)),
-      );
-      const amountOut = Balance.from(
-        BigInt(Number(buyAmount) * Number(DECIMALS)),
-      );
-      const expiration = UInt64.from(validForDays * 17280);
-      const tx = await client.client.transaction(
-        PublicKey.fromBase58(wallet),
-        async () => {
-          await orderbook.createLimitOrder(
-            tokenIn,
-            tokenOut,
-            amountIn,
-            amountOut,
-            expiration,
-          );
-        },
-      );
-      console.log("Creating limit order");
-      await tx.sign();
-      await tx.send();
-
-      if (tx.transaction instanceof PendingTransaction)
-        walletStore.addPendingTransaction(tx.transaction);
-      else {
-        toast({
-          title: "Transaction failed",
-          description: "Please try again",
-        });
+      if (!sellTokenObj || !buyTokenObj) {
+        return;
       }
+
+      if (sellTokenObj?.tokenId === buyTokenObj?.tokenId) {
+        toast({
+          title: "Invalid token selection",
+          description: "Please select different tokens to swap",
+        });
+        return;
+      }
+
+      const sellAmount = state.sellAmount;
+      const buyAmount = state.buyAmount;
+      const validForDays = state.validForDays;
+
+      if (client.client && wallet) {
+        const orderbook = client.client.runtime.resolve("OrderBook");
+        const tokenIn = TokenId.from(sellTokenObj.tokenId);
+        const tokenOut = TokenId.from(buyTokenObj.tokenId);
+        const amountIn = Balance.from(
+          BigInt(Number(sellAmount) * Number(DECIMALS)),
+        );
+        const amountOut = Balance.from(
+          BigInt(Number(buyAmount) * Number(DECIMALS)),
+        );
+        const expiration = UInt64.from(validForDays * 17280);
+        const tx = await client.client.transaction(
+          PublicKey.fromBase58(wallet),
+          async () => {
+            await orderbook.createLimitOrder(
+              tokenIn,
+              tokenOut,
+              amountIn,
+              amountOut,
+              expiration,
+            );
+          },
+        );
+        console.log("Creating limit order");
+        await tx.sign();
+        await tx.send();
+
+        if (tx.transaction instanceof PendingTransaction)
+          walletStore.addPendingTransaction(tx.transaction);
+        else {
+          toast({
+            title: "Transaction failed",
+            description: "Please try again",
+          });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setWaitApproval(false);
     }
   };
 
@@ -140,7 +148,7 @@ export default function LimitOrder() {
 
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
-      <div className="flex w-full max-w-[470px] sm:w-[470px]">
+      <div className="flex w-full max-w-[470px] flex-col sm:w-[470px]">
         <Card className="flex w-full flex-col items-center border-0 shadow-none">
           <div className="mb-2 flex flex-row items-center justify-center gap-2">
             <h2 className="text-2xl font-bold">Create Limit Orders</h2>
@@ -307,14 +315,21 @@ export default function LimitOrder() {
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
+            disabled={waitApproval}
+            loading={waitApproval}
             onClick={() => {
               wallet ?? walletStore.connect();
               wallet && handleSubmit();
             }}
           >
-            {wallet ? "Place Order" : "Connect wallet"}
+            {wallet
+              ? waitApproval
+                ? "Waiting Approval"
+                : "Place Order"
+              : "Connect wallet"}
           </Button>
         </Card>
+        <MyOrders />
       </div>
     </div>
   );
