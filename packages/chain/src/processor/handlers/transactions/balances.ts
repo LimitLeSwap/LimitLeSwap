@@ -15,12 +15,18 @@ export const handleBalancesMintToken = async (
 
     const parameterDecoder = MethodParameterEncoder.fromMethod(module, "mintToken");
 
-    console.log("Decoding mintToken parameters");
     // @ts-expect-error
     const [tokenId, address, amount]: [TokenId, PublicKey, Balance] = await parameterDecoder.decode(
         tx.tx.argsFields,
         tx.tx.auxiliaryData
     );
+
+    console.log("Decoding mintToken parameters");
+    console.table({
+        tokenId: tokenId.toString(),
+        address: address.toBase58(),
+        amount: amount.toBigInt(),
+    });
 
     const currentBalance = await client.balance.findFirst({
         where: {
@@ -72,12 +78,18 @@ export const handleBalancesBurnToken = async (
 
     const parameterDecoder = MethodParameterEncoder.fromMethod(module, "burnToken");
 
-    console.log("Decoding burnToken parameters");
     // @ts-expect-error
     const [tokenId, address, amount]: [TokenId, PublicKey, Balance] = await parameterDecoder.decode(
         tx.tx.argsFields,
         tx.tx.auxiliaryData
     );
+
+    console.log("Decoding burnToken parameters");
+    console.table({
+        tokenId: tokenId.toString(),
+        address: address.toBase58(),
+        amount: amount.toBigInt(),
+    });
 
     const currentBalance = await client.balance.findFirst({
         where: {
@@ -130,12 +142,16 @@ export const handleBalancesCreateToken = async (
 
     const parameterDecoder = MethodParameterEncoder.fromMethod(module, "createToken");
 
-    console.log("Decoding createToken parameters");
     // @ts-expect-error
     const [tokenId]: [TokenId] = await parameterDecoder.decode(
         tx.tx.argsFields,
         tx.tx.auxiliaryData
     );
+
+    console.log("Decoding createToken parameters");
+    console.table({
+        tokenId: tokenId.toString(),
+    });
 
     await client.token.create({
         data: {
@@ -144,6 +160,8 @@ export const handleBalancesCreateToken = async (
             totalSupply: 0n,
         },
     });
+
+    console.log(`Token ${tokenId.toString()} created`);
 };
 
 export const handleBalancesSafeTransfer = async (

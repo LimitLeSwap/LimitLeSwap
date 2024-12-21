@@ -7,6 +7,7 @@ import {
     handleBalancesMintToken,
     handleBalancesSafeTransfer,
 } from "./transactions/balances";
+import { handleCreateLimitOrder } from "./transactions/orderbook";
 
 const handleTransactions: BlockHandler<PrismaClient> = async (
     client,
@@ -45,6 +46,20 @@ const handleTransactions: BlockHandler<PrismaClient> = async (
 
                     case "createToken":
                         await handleBalancesCreateToken(client, block, tx);
+                        break;
+                }
+                break;
+
+            case "OrderBook":
+                // eslint-disable-next-line max-len
+                // eslint-disable-next-line sonarjs/no-small-switch, default-case, sonarjs/no-nested-switch
+                switch (methodName) {
+                    case "createLimitOrder":
+                        await handleCreateLimitOrder(client, block, tx);
+                        break;
+
+                    case "cancelLimitOrder":
+                        // await handleCancelLimitOrder(client, block, tx);
                         break;
                 }
                 break;

@@ -92,6 +92,14 @@ model LimitOrder {
 
   // pool Pool @relation(fields: [poolId], references: [poolId])
 
+  @@index([active])
+  @@index([owner])
+  @@index([poolId])
+  @@index([token0Price, token1Price])
+  @@index([active, poolId])
+  @@index([owner, active])
+  @@index([owner, poolId, active])
+
 }
 
 // Todo: probably need to add more fields

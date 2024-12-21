@@ -13,6 +13,10 @@ CREATE TABLE "Token" (
     CONSTRAINT "Token_pkey" PRIMARY KEY ("tokenId")
 );
 
+INSERT INTO "Token" ("tokenId", "decimals", "totalSupply", "createdAt")
+VALUES ('0', 6, 0, NOW()) -- Todo: change decimals
+ON CONFLICT ("tokenId") DO NOTHING;
+
 -- CreateTable Balance
 CREATE TABLE "Balance" (
     "height" INTEGER NOT NULL,
@@ -73,6 +77,13 @@ CREATE TABLE "LimitOrder" (
     CONSTRAINT "LimitOrder_pkey" PRIMARY KEY ("orderId")
     -- CONSTRAINT "LimitOrder_pool_fkey" FOREIGN KEY ("poolId") REFERENCES "Pool" ("poolId") ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+CREATE INDEX "LimitOrder_active_idx" ON "LimitOrder" ("active");
+CREATE INDEX "LimitOrder_owner_idx" ON "LimitOrder" ("owner");
+CREATE INDEX "LimitOrder_poolId_idx" ON "LimitOrder" ("poolId");
+CREATE INDEX "LimitOrder_token0Price_token1Price_idx" ON "LimitOrder" ("token0Price", "token1Price");
+CREATE INDEX "LimitOrder_active_poolId_idx" ON "LimitOrder" ("active", "poolId");
+CREATE INDEX "LimitOrder_owner_active_idx" ON "LimitOrder" ("owner", "active");
 
 -- CreateTable TokenTrade
 CREATE TABLE "TokenTrade" (
