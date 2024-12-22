@@ -17,7 +17,7 @@ import { ArrowUpDown } from "lucide-react";
 import { PublicKey, UInt64 } from "o1js";
 import { Balance, TokenId } from "@proto-kit/library";
 import React, { useEffect, useMemo, useState } from "react";
-import OrderBook from "./orderBook";
+import OrderBook from "./orderBookNew";
 import MyOrders from "./myOrders";
 import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
@@ -326,6 +326,7 @@ export default function LimitOrder() {
           </Button>
         </Card>
         <MyOrders />
+        <OrderBook sellToken={sellTokenObj} buyToken={buyTokenObj} />
       </div>
     </div>
   );

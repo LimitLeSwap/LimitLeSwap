@@ -139,6 +139,11 @@ export default function MyOrders() {
                     </TableRow>
                   );
                 })}
+              {limitOrders.length === 0 && (
+                <TableRow className=" flex flex-row items-center justify-between px-1 py-4">
+                  No orders
+                </TableRow>
+              )}
             </ScrollArea>
           </TableBody>
         </Table>

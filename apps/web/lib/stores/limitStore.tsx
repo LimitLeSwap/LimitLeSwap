@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { useClientStore } from "./client";
-import { useWalletStore } from "./wallet";
 import { useChainStore } from "./chain";
 import { useEffect, useRef } from "react";
 import { Field, Provable, Struct } from "o1js";
@@ -82,12 +81,11 @@ export const useObserveOrders = () => {
   const client = useClientStore();
   const chain = useChainStore();
   const limitStore = useLimitStore();
-  const wallet = useWalletStore();
 
   const previousLimitOrdersRef = useRef<LimitOrder[]>(limitStore.limitOrders);
 
   useEffect(() => {
-    if (!client || !client.client || !wallet.wallet) return;
+    if (!client || !client.client) return;
 
     (async () => {
       let orderCount =
@@ -137,5 +135,5 @@ export const useObserveOrders = () => {
         previousLimitOrdersRef.current = limitOrders;
       }
     })();
-  }, [client.client, chain.block?.height, wallet.wallet]);
+  }, [client.client, chain.block?.height]);
 };

@@ -29,34 +29,23 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function OrderBook({
-  tokenIn,
-  tokenOut,
+  sellToken,
+  buyToken,
 }: {
-  tokenIn: string;
-  tokenOut: string;
+  sellToken: Token | null;
+  buyToken: Token | null;
 }) {
   const poolStore = usePoolStore();
   const limitStore = useLimitStore();
   const chainStore = useChainStore();
   const [orders, setOrders] = useState<{ price: string; amount: number }[]>([]);
-  const [pair, setPair] = useState<{ tokenIn: string; tokenOut: string }>({
-    tokenIn,
-    tokenOut,
-  });
+
   useEffect(() => {
-    let sellToken = poolStore.tokenList.find((token) => token.name === tokenIn);
-    let buyToken = poolStore.tokenList.find((token) => token.name === tokenOut);
-
-    setPair({
-      tokenIn: sellToken?.name ?? "",
-      tokenOut: buyToken?.name ?? "",
-    });
-
     if (!sellToken || !buyToken) return;
 
     const priceToAmount: { [key: number]: number } = {};
 
-    const orders = limitStore.limitOrders
+    limitStore.limitOrders
       .filter((order) => {
         return (
           order.isActive &&
@@ -72,13 +61,13 @@ export default function OrderBook({
         };
       })
       .forEach((order) => {
-        if (!priceToAmount[order.price]) {
-          priceToAmount[order.price] = 0;
+        const roundedPrice = Math.round(order.price * 100) / 100;
+        if (!priceToAmount[roundedPrice]) {
+          priceToAmount[roundedPrice] = 0;
         }
-        priceToAmount[order.price] += order.amountIn / Number(DECIMALS);
+        priceToAmount[roundedPrice] += order.amountIn / Number(DECIMALS);
       });
 
-    console.log(priceToAmount);
     const transformedArray = Object.keys(priceToAmount)
       .map((key) => {
         return {
@@ -86,10 +75,12 @@ export default function OrderBook({
           amount: priceToAmount[Number(key)],
         };
       })
-      .sort((a, b) => Number(a.price) - Number(b.price));
+      .sort((a, b) => Number(a.price) - Number(b.price))
+      .slice(0, 10);
 
     setOrders(transformedArray);
-  }, [tokenIn, tokenOut, limitStore.limitOrders]);
+  }, [sellToken, buyToken, limitStore.limitOrders]);
+
   return (
     <Card className=" w-full rounded-2xl shadow-none">
       <CardHeader>
@@ -97,14 +88,14 @@ export default function OrderBook({
           {" "}
           <div className="relative flex h-4 w-8">
             <div className=" absolute top-0">
-              <img src={`/${pair.tokenIn}.png`} className="h-4 w-4" />
+              <img src={sellToken?.icon} className="h-4 w-4" />
             </div>
             <div className=" absolute left-2">
-              <img src={`/${pair.tokenOut}.png`} className="h-4 w-4" />
+              <img src={buyToken?.icon} className="h-4 w-4" />
             </div>
           </div>
           <span className="flex">
-            {pair.tokenIn} / {pair.tokenOut} Orders
+            {sellToken?.name} / {buyToken?.name} Orders
           </span>
         </CardTitle>
       </CardHeader>
@@ -116,7 +107,10 @@ export default function OrderBook({
               data={orders}
               layout="vertical"
               margin={{
-                right: 16,
+                top: 20,
+                right: 30,
+                left: 40,
+                bottom: 20,
               }}
             >
               <CartesianGrid horizontal={false} />
@@ -124,7 +118,7 @@ export default function OrderBook({
                 dataKey="price"
                 type="category"
                 tickLine={false}
-                tickMargin={1}
+                tickMargin={10}
                 axisLine={false}
                 tickFormatter={(value) => value.slice(0, 3)}
                 hide
@@ -136,9 +130,9 @@ export default function OrderBook({
                   <ChartTooltipContent
                     indicator="dot"
                     labelFormatter={(value) =>
-                      value + ` ${pair.tokenIn} / ${pair.tokenOut}`
+                      value + ` ${buyToken?.name} / ${sellToken?.name}`
                     }
-                    formatter={(value) => value + ` ${pair.tokenIn}`}
+                    formatter={(value) => value + ` ${buyToken?.name}`}
                     hideIndicator={false}
                   />
                 }
