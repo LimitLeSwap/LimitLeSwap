@@ -4,7 +4,7 @@ import { useLimitStore } from "@/lib/stores/limitStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useChainStore } from "@/lib/stores/chain";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { useToast } from "@/components/ui/use-toast";
-import { findPool } from "@/lib/common";
+import { findTokenByTokenId } from "@/lib/common";
 
 export default function MyOrders() {
   const walletStore = useWalletStore();
@@ -76,68 +76,72 @@ export default function MyOrders() {
 
   return (
     <Card className="my-8 flex w-full flex-col rounded-2xl shadow-none">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xl">Active Orders</CardTitle>
-      </CardHeader>
       <CardContent>
-        <ScrollArea className=" h-40">
-          <Table>
-            <TableBody>
+        <Table>
+          <TableBody>
+            <TableRow className=" w-100 flex flex-row items-center justify-between px-1 py-2">
+              <TableCell className="flex p-0">
+                <div className=" font-sm text-red-600">Sell</div>
+              </TableCell>
+              <TableCell className="flex p-0 ">
+                <div className=" text-sm  text-green-600">Buy</div>
+              </TableCell>
+              <TableCell className="flex p-0 ">
+                <div className=" text-sm">Valid Until</div>
+              </TableCell>
+              <TableCell className="flex p-0 ">
+                <div className=" text-sm">Action</div>
+              </TableCell>
+            </TableRow>
+            <ScrollArea className=" h-36">
               {limitOrders &&
                 limitOrders.length > 0 &&
                 limitOrders.map((limitOrder) => {
-                  const [tokenIn, tokenOut] = findPool(
+                  const tokenIn = findTokenByTokenId(
                     limitOrder.tokenIn,
+                    poolStore.tokenList ?? [],
+                  );
+
+                  const tokenOut = findTokenByTokenId(
                     limitOrder.tokenOut,
-                    poolStore,
+                    poolStore.tokenList ?? [],
                   );
 
                   return (
                     <TableRow
-                      className=" flex flex-row items-center justify-between"
+                      className=" flex flex-row items-center justify-between px-1 py-4"
                       key={limitOrder.orderId}
                     >
-                      <TableCell className="flex flex-col px-1 py-4">
-                        <div>
-                          <span className=" font-medium text-red-600">
-                            Sell
-                          </span>{" "}
-                          {Number(limitOrder.tokenInAmount) / Number(DECIMALS)}{" "}
-                          {tokenIn?.name}{" "}
-                        </div>
-                        <div>
-                          <span className=" font-medium text-green-600">
-                            For
-                          </span>{" "}
-                          {Number(limitOrder.tokenOutAmount) / Number(DECIMALS)}{" "}
-                          {tokenOut?.name}
-                        </div>
-                        <div className=" text-sm">
-                          <span className=" text-sm font-normal">
-                            {" "}
-                            Valid until:{" "}
-                          </span>
-                          {limitOrder.expiration}
-                        </div>
+                      <TableCell className="flex p-0 text-xs">
+                        {Number(limitOrder.tokenInAmount) / Number(DECIMALS)}{" "}
+                        {tokenIn?.name}{" "}
                       </TableCell>
 
-                      <TableCell className="flex p-0">
+                      <TableCell className="flex p-0 text-xs">
+                        {Number(limitOrder.tokenOutAmount) / Number(DECIMALS)}{" "}
+                        {tokenOut?.name}
+                      </TableCell>
+
+                      <TableCell className="flex p-0 text-xs">
+                        {limitOrder.expiration}
+                      </TableCell>
+                      <TableCell className="flex p-0 text-xs">
                         <Button
                           variant={"hover"}
-                          className=" flex items-center justify-center text-sm"
+                          className=" flex items-center justify-center"
                           onClick={() => {
                             cancelOrder(limitOrder);
                           }}
                         >
-                          Cancel <X className=" h-4 w-4" />
+                          <Trash2 size={16} />
                         </Button>
                       </TableCell>
                     </TableRow>
                   );
                 })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+            </ScrollArea>
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

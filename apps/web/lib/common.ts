@@ -1,6 +1,6 @@
 import { PoolState } from "./stores/poolStore";
 
-export function findPool(
+export function findTokenAndPoolByName(
   sellTokenName: string,
   buyTokenName: string,
   poolStore: PoolState,
@@ -20,4 +20,11 @@ export function findPool(
     }) ?? null;
 
   return [sellToken, buyToken, pool];
+}
+
+export function findTokenByTokenId(
+  tokenId: string,
+  tokenList: Token[],
+): Token | null {
+  return tokenList.find((token) => token.tokenId === tokenId) ?? null;
 }

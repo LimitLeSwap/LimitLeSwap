@@ -25,7 +25,7 @@ import { OrderBundle, useLimitStore } from "@/lib/stores/limitStore";
 import { useChainStore } from "@/lib/stores/chain";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { findBestRoute } from "./utils/findRoute";
-import { findPool } from "@/lib/common";
+import { findTokenAndPoolByName } from "@/lib/common";
 
 export default function Swap() {
   const walletStore = useWalletStore();
@@ -63,7 +63,7 @@ export default function Swap() {
   const { toast } = useToast();
 
   const [sellTokenObj, buyTokenObj] = useMemo(() => {
-    return findPool(state.sellToken, state.buyToken, poolStore);
+    return findTokenAndPoolByName(state.sellToken, state.buyToken, poolStore);
   }, [
     state.sellToken,
     state.buyToken,

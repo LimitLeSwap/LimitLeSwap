@@ -22,7 +22,7 @@ import MyOrders from "./myOrders";
 import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { Card } from "@/components/ui/card";
-import { findPool } from "@/lib/common";
+import { findTokenAndPoolByName } from "@/lib/common";
 
 export default function LimitOrder() {
   const walletStore = useWalletStore();
@@ -44,7 +44,7 @@ export default function LimitOrder() {
   });
 
   const [sellTokenObj, buyTokenObj] = useMemo(() => {
-    return findPool(state.sellToken, state.buyToken, poolStore);
+    return findTokenAndPoolByName(state.sellToken, state.buyToken, poolStore);
   }, [
     state.sellToken,
     state.buyToken,
@@ -277,39 +277,35 @@ export default function LimitOrder() {
           </div>
 
           <div className="my-2 grid grid-cols-5 flex-row items-center rounded-2xl border p-4">
-            <div className=" col-span-3">
-              <Label className="text-custom-input px-3 text-sm">
-                {state.sellToken} / {state.buyToken} Rate
-                <CustomInput
-                  className=" text-xl"
-                  value={state.rate}
-                  placeholder="0"
-                  readOnly
-                  type="text"
-                />
-              </Label>
-            </div>
+            <Label className="text-custom-input col-span-3 px-3 text-sm">
+              {state.sellToken} / {state.buyToken} Rate
+              <CustomInput
+                className=" text-xl"
+                value={state.rate}
+                placeholder="0"
+                readOnly
+                type="text"
+              />
+            </Label>
 
-            <div className=" col-span-2">
-              <Label className="text-custom-input px-3 text-sm">
-                Valid For Days
-                <CustomInput
-                  value={state.validForDays}
-                  onChange={(e) => {
-                    setState({
-                      ...state,
-                      validForDays: Number(e.target.value),
-                    });
-                  }}
-                  placeholder={"0"}
-                  pattern="^[0-9]*[.,]?[0-9]*$"
-                  minLength={1}
-                  maxLength={40}
-                  inputMode="decimal"
-                  type="number"
-                />
-              </Label>
-            </div>
+            <Label className="text-custom-input col-span-2 px-3 text-sm">
+              Valid For Days
+              <CustomInput
+                value={state.validForDays}
+                onChange={(e) => {
+                  setState({
+                    ...state,
+                    validForDays: Number(e.target.value),
+                  });
+                }}
+                placeholder={"0"}
+                pattern="^[0-9]*[.,]?[0-9]*$"
+                minLength={1}
+                maxLength={40}
+                inputMode="decimal"
+                type="number"
+              />
+            </Label>
           </div>
           <Button
             size={"lg"}
