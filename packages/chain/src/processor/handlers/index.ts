@@ -7,13 +7,17 @@ import {
     handleBalancesMintToken,
     handleBalancesSafeTransfer,
 } from "./transactions/balances";
-import { handleCreateLimitOrder } from "./transactions/orderbook";
+import { handleCancelLimitOrder, handleCreateLimitOrder } from "./transactions/orderbook";
+import {
+    handlePoolAddLiquidity,
+    handlePoolCreatePool,
+    handlePoolRemoveLiquidity,
+} from "./transactions/pool";
 
 const handleTransactions: BlockHandler<PrismaClient> = async (
     client,
     { block, result: blockResult }
 ) => {
-    // iterate over all transactions
     for (const tx of block.transactions) {
         const methodId = tx.tx.methodId.toBigInt();
 
@@ -59,20 +63,36 @@ const handleTransactions: BlockHandler<PrismaClient> = async (
                         break;
 
                     case "cancelLimitOrder":
-                        // await handleCancelLimitOrder(client, block, tx);
+                        await handleCancelLimitOrder(client, block, tx);
                         break;
                 }
                 break;
 
-            // case "PoolModule":
-            //     // eslint-disable-next-line max-len
-            //     // eslint-disable-next-line sonarjs/no-small-switch, default-case, sonarjs/no-nested-switch
-            //     switch (methodName) {
-            //         case "createPool":
-            //             // await handlePoolCreatePool(client, block, tx);
-            //             break;
-            //     }
-            //     break;
+            case "PoolModule":
+                // eslint-disable-next-line max-len
+                // eslint-disable-next-line sonarjs/no-small-switch, default-case, sonarjs/no-nested-switch
+                switch (methodName) {
+                    case "createPool":
+                        await handlePoolCreatePool(client, block, tx);
+                        break;
+
+                    case "addLiquidity":
+                        await handlePoolAddLiquidity(client, block, tx);
+                        break;
+
+                    case "removeLiquidity":
+                        await handlePoolRemoveLiquidity(client, block, tx);
+                        break;
+
+                    case "swap":
+                        // await handlePoolSwap(client, block, tx);
+                        break;
+
+                    case "swapWithLimit":
+                        // await handlePoolSwapWithLimit(client, block, tx);
+                        break;
+                }
+                break;
         }
     }
 };
