@@ -1,18 +1,19 @@
-import React from "react";
-import { Table, TableBody, TableCell, TableRow } from "./ui/table";
+import React, { useEffect, useState } from "react";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useLimitStore } from "@/lib/stores/limitStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useChainStore } from "@/lib/stores/chain";
 import { X } from "lucide-react";
-import { Button } from "./ui/button";
-import { ScrollArea } from "./ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClientStore } from "@/lib/stores/client";
 import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { findPool } from "@/lib/common";
 
 export default function MyOrders() {
   const walletStore = useWalletStore();
@@ -46,6 +47,33 @@ export default function MyOrders() {
       }
     }
   };
+
+  const [limitOrders, setLimitOrders] = useState<LimitOrder[]>([]);
+
+  useEffect(() => {
+    if (!client.client || !walletStore.wallet) return;
+
+    console.log("limitStore.limitOrders", limitStore.limitOrders);
+
+    const orderList = limitStore.limitOrders.filter(
+      (order) =>
+        order.owner.toBase58() === walletStore.wallet &&
+        order.isActive &&
+        Number(order.expiration) > Number(chainStore.block?.height ?? 0),
+    );
+
+    setLimitOrders(orderList);
+
+    return () => {
+      setLimitOrders([]);
+    };
+  }, [
+    limitStore.limitOrders,
+    walletStore.wallet,
+    chainStore.block,
+    client.client,
+  ]);
+
   return (
     <Card className="my-8 flex w-full flex-col rounded-2xl shadow-none">
       <CardHeader className="pb-2">
@@ -55,20 +83,13 @@ export default function MyOrders() {
         <ScrollArea className=" h-40">
           <Table>
             <TableBody>
-              {limitStore.limitOrders
-                .filter(
-                  (limitOrder) =>
-                    limitOrder.owner.toBase58() === walletStore.wallet &&
-                    limitOrder.isActive &&
-                    Number(limitOrder.expiration) >
-                      Number(chainStore.block?.height ?? 0),
-                )
-                .map((limitOrder) => {
-                  const tokenIn = poolStore.tokenList.find(
-                    (token) => token.tokenId === limitOrder.tokenIn,
-                  );
-                  const tokenOut = poolStore.tokenList.find(
-                    (token) => token.tokenId === limitOrder.tokenOut,
+              {limitOrders &&
+                limitOrders.length > 0 &&
+                limitOrders.map((limitOrder) => {
+                  const [tokenIn, tokenOut] = findPool(
+                    limitOrder.tokenIn,
+                    limitOrder.tokenOut,
+                    poolStore,
                   );
 
                   return (

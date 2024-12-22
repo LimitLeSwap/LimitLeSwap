@@ -28,6 +28,7 @@ export class Step extends Struct({
   limitOrders: OrderBundle,
 }) {
   public static empty(): Step {
+    // @ts-expect-error
     return new Step({
       tokenIn: TokenId.from(0),
       tokenOut: TokenId.from(0),
@@ -43,6 +44,7 @@ export class Step extends Struct({
     amountOut: Balance,
     limitOrders: OrderBundle,
   ) {
+    // @ts-expect-error
     return new Step({
       tokenIn,
       tokenOut,
@@ -54,6 +56,7 @@ export class Step extends Struct({
 }
 
 export class Route extends Struct({
+  // @ts-expect-error
   path: Provable.Array(Step, MAX_ROUTE_SIZE),
 }) {
   public static empty(): Route {
@@ -81,7 +84,7 @@ export const useObserveOrders = () => {
   const limitStore = useLimitStore();
   const wallet = useWalletStore();
 
-  const previousLimitOrdersRef = useRef<LimitOrder[]>([]);
+  const previousLimitOrdersRef = useRef<LimitOrder[]>(limitStore.limitOrders);
 
   useEffect(() => {
     if (!client || !client.client || !wallet.wallet) return;
@@ -121,21 +124,17 @@ export const useObserveOrders = () => {
           tokenOutAmount: order.tokenOutAmount.toString(),
           owner: order.owner,
         });
+      }
 
-        if (!previousLimitOrdersRef.current) {
-          limitStore.setLimitOrders(limitOrders);
-          previousLimitOrdersRef.current = limitOrders;
-        } else if (
-          !previousLimitOrdersRef.current ||
-          !previousLimitOrdersRef.current.length ||
-          !limitOrders.length ||
-          !previousLimitOrdersRef.current.every((order, index) =>
-            isEqual(order, limitOrders[index]),
-          )
-        ) {
-          limitStore.setLimitOrders(limitOrders);
-          previousLimitOrdersRef.current = limitOrders;
-        }
+      console.log("limit orders", limitOrders);
+
+      if (
+        !isEqual(previousLimitOrdersRef.current, limitOrders) &&
+        limitOrders
+      ) {
+        console.log("setting limit orders", limitOrders);
+        limitStore.setLimitOrders(limitOrders);
+        previousLimitOrdersRef.current = limitOrders;
       }
     })();
   }, [client.client, chain.block?.height, wallet.wallet]);

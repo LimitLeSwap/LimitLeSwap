@@ -14,7 +14,7 @@ export interface PoolState {
 }
 
 export const usePoolStore = create<PoolState>()(
-  immer((set, get) => ({
+  immer((set) => ({
     isSet: false,
     tokenList: [],
     poolList: [],

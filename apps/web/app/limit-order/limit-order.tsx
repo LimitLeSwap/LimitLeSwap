@@ -17,8 +17,8 @@ import { ArrowUpDown } from "lucide-react";
 import { PublicKey, UInt64 } from "o1js";
 import { Balance, TokenId } from "@proto-kit/library";
 import React, { useEffect, useMemo, useState } from "react";
-import OrderBook from "@/components/orderBook";
-import MyOrders from "@/components/myOrders";
+import OrderBook from "./orderBook";
+import MyOrders from "./myOrders";
 import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { Card } from "@/components/ui/card";
@@ -26,11 +26,14 @@ import { findPool } from "@/lib/common";
 
 export default function LimitOrder() {
   const walletStore = useWalletStore();
-  const wallet = walletStore.wallet;
-  const client = useClientStore();
-  const { toast } = useToast();
   const poolStore = usePoolStore();
+  const client = useClientStore();
 
+  const wallet = walletStore.wallet;
+
+  const { toast } = useToast();
+
+  const [waitApproval, setWaitApproval] = useState(false);
   const [state, setState] = useState({
     sellToken: "MINA",
     buyToken: "USDT",
@@ -40,7 +43,14 @@ export default function LimitOrder() {
     validForDays: 1,
   });
 
-  const [waitApproval, setWaitApproval] = useState(false);
+  const [sellTokenObj, buyTokenObj] = useMemo(() => {
+    return findPool(state.sellToken, state.buyToken, poolStore);
+  }, [
+    state.sellToken,
+    state.buyToken,
+    poolStore.poolList,
+    poolStore.tokenList,
+  ]);
 
   useEffect(() => {
     if (Number(state.sellAmount) > 0 && Number(state.buyAmount) > 0) {
@@ -58,15 +68,6 @@ export default function LimitOrder() {
       });
     }
   }, [state.buyAmount, state.sellAmount]);
-
-  const [sellTokenObj, buyTokenObj] = useMemo(() => {
-    return findPool(state.sellToken, state.buyToken, poolStore);
-  }, [
-    state.sellToken,
-    state.buyToken,
-    poolStore.poolList,
-    poolStore.tokenList,
-  ]);
 
   const handleSubmit = async () => {
     try {
@@ -112,7 +113,6 @@ export default function LimitOrder() {
             );
           },
         );
-        console.log("Creating limit order");
         await tx.sign();
         await tx.send();
 

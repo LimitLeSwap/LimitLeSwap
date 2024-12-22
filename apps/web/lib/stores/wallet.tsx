@@ -69,7 +69,7 @@ export const useWalletStore = create<WalletState, [["zustand/immer", never]]>(
 
       try {
         const wallet = await window.mina.requestAccounts();
-        await window.mina?.switchChain({ networkID: "mina:testnet" });
+        await window.mina?.switchChain({ networkID: "mina:devnet" });
         if (wallet[0]) {
           set((state) => {
             state.isConnected = true;
