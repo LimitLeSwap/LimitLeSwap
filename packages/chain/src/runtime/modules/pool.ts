@@ -9,7 +9,7 @@ import { OrderBook } from "./orderbook";
 import { OrderBundle } from "../utils/limit-order";
 import { LiquidityPool } from "../utils/liquidity-pool";
 import { PoolId } from "../utils/pool-id";
-import { calculateInitialLPSupply, calculateLPShare, MINIMUM_LIQUIDITY } from "../utils/math";
+import { MINIMUM_LIQUIDITY } from "../utils/math";
 
 interface PoolModuleConfig {}
 
@@ -70,9 +70,6 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
         await this.balances.transfer(tokenA, sender, poolAccount, tokenAmountA);
         await this.balances.transfer(tokenB, sender, poolAccount, tokenAmountB);
 
-        // enable this line to calculate witness on server side
-        // const initialLPSupply = calculateInitialLPSupply(tokenAmountA, tokenAmountB);
-
         assert(
             lpRequestedAmount.greaterThanOrEqual(Balance.from(0)),
             "Requested LP amount must be greater than 0"
@@ -126,13 +123,6 @@ export class PoolModule extends RuntimeModule<PoolModuleConfig> {
 
         assert(reserveA.greaterThan(Balance.from(0)), "Invalid reserve A");
         assert(reserveB.greaterThan(Balance.from(0)), "Invalid reserve B");
-
-        // do we need this assertion?
-        // assert(tokenAmountA.mul(reserveB).equals(tokenAmountB.mul(reserveA)), "Invalid ratio");
-
-        // enable this line to calculate witness on server side
-        // const calculatedLPShare = calculateLPShare( tokenAmountA, tokenAmountB, reserveA, reserveB, lpTotal);
-        // assert(calculatedLPShare.greaterThanOrEqual(lpRequestedAmount), "Too much LP requested");
 
         Provable.asProver(() => {
             console.log("reserveA", reserveA.toString());

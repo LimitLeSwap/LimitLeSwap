@@ -12,7 +12,10 @@ import {
     handlePoolAddLiquidity,
     handlePoolCreatePool,
     handlePoolRemoveLiquidity,
+    handlePoolSwap,
+    handlePoolSwapWithLimit,
 } from "./transactions/pool";
+import { handleRouterTradeRoute } from "./transactions/router";
 
 const handleTransactions: BlockHandler<PrismaClient> = async (
     client,
@@ -29,6 +32,8 @@ const handleTransactions: BlockHandler<PrismaClient> = async (
 
         const moduleName = methodDescriptor[0];
         const methodName = methodDescriptor[1];
+
+        console.log(`Processing ${moduleName}.${methodName}`);
 
         // eslint-disable-next-line sonarjs/no-small-switch, default-case
         switch (moduleName) {
@@ -85,11 +90,21 @@ const handleTransactions: BlockHandler<PrismaClient> = async (
                         break;
 
                     case "swap":
-                        // await handlePoolSwap(client, block, tx);
+                        await handlePoolSwap(client, block, tx);
                         break;
 
                     case "swapWithLimit":
-                        // await handlePoolSwapWithLimit(client, block, tx);
+                        await handlePoolSwapWithLimit(client, block, tx);
+                        break;
+                }
+                break;
+
+            case "RouterModule":
+                // eslint-disable-next-line max-len
+                // eslint-disable-next-line sonarjs/no-small-switch, default-case, sonarjs/no-nested-switch
+                switch (methodName) {
+                    case "tradeRoute":
+                        await handleRouterTradeRoute(client, block, tx);
                         break;
                 }
                 break;
