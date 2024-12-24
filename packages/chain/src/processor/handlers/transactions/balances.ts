@@ -6,6 +6,141 @@ import { Block, TransactionExecutionResult } from "@proto-kit/sequencer";
 import { Balance, TokenId } from "@proto-kit/library";
 import { PublicKey } from "o1js";
 
+export const decreaseUserBalance = async (
+    client: Parameters<BlockHandler<PrismaClient>>[0],
+    blockHeight: number,
+    tokenId: TokenId,
+    address: PublicKey,
+    amount: Balance
+) => {
+    const currentBalance = await client.balance.findFirst({
+        where: {
+            address: address.toBase58(),
+            tokenId: tokenId.toString(),
+        },
+        orderBy: { height: "desc" },
+    });
+
+    if (currentBalance === null) {
+        throw new Error(`Balance not found for ${address.toBase58()}`);
+    }
+
+    if (BigInt(currentBalance.amount) < amount.toBigInt()) {
+        throw new Error(`Insufficient balance for ${address.toBase58()}`);
+    }
+
+    if (amount.toBigInt() < 0n) {
+        throw new Error(`Invalid amount ${amount.toBigInt()} for ${address.toBase58()}`);
+    }
+
+    if (amount.toBigInt() === 0n) {
+        return;
+    }
+
+    if (currentBalance.height > blockHeight) {
+        throw new Error(`Invalid block height ${blockHeight} for ${address.toBase58()}`);
+    }
+
+    if (currentBalance.height === blockHeight) {
+        await client.balance.update({
+            where: {
+                height_address_tokenId: {
+                    height: currentBalance.height,
+                    address: address.toBase58(),
+                    tokenId: tokenId.toString(),
+                },
+            },
+            data: {
+                amount: BigInt(currentBalance.amount) - amount.toBigInt(),
+            },
+        });
+    } else {
+        await client.balance.create({
+            data: {
+                height: blockHeight,
+                tokenId: tokenId.toString(),
+                address: address.toBase58(),
+                amount: BigInt(currentBalance.amount) - amount.toBigInt(),
+            },
+        });
+    }
+
+    console.log(`Decreased balance for`);
+    console.table({
+        tokenId: tokenId.toString(),
+        address: address.toBase58(),
+        fromAmount: BigInt(currentBalance.amount),
+        toAmount: BigInt(currentBalance.amount) - amount.toBigInt(),
+    });
+};
+
+export const increaseUserBalance = async (
+    client: Parameters<BlockHandler<PrismaClient>>[0],
+    blockHeight: number,
+    tokenId: TokenId,
+    address: PublicKey,
+    amount: Balance
+) => {
+    const currentBalance = await client.balance.findFirst({
+        where: {
+            address: address.toBase58(),
+            tokenId: tokenId.toString(),
+        },
+        orderBy: { height: "desc" },
+    });
+
+    if (currentBalance === null) {
+        await client.balance.create({
+            data: {
+                height: blockHeight,
+                tokenId: tokenId.toString(),
+                address: address.toBase58(),
+                amount: amount.toBigInt(),
+            },
+        });
+    } else {
+        if (BigInt(currentBalance.amount) < 0n) {
+            throw new Error(`Invalid balance for ${address.toBase58()}`);
+        }
+
+        if (amount.toBigInt() < 0n) {
+            throw new Error(`Invalid amount ${amount.toBigInt()} for ${address.toBase58()}`);
+        }
+
+        if (amount.toBigInt() === 0n) {
+            return;
+        }
+
+        if (currentBalance.height > blockHeight) {
+            throw new Error(`Invalid block height ${blockHeight} for ${address.toBase58()}`);
+        }
+
+        if (currentBalance.height === blockHeight) {
+            await client.balance.update({
+                where: {
+                    height_address_tokenId: {
+                        height: currentBalance.height,
+                        address: address.toBase58(),
+                        tokenId: tokenId.toString(),
+                    },
+                },
+                data: {
+                    amount: BigInt(currentBalance.amount) + amount.toBigInt(),
+                },
+            });
+        } else {
+            await client.balance.create({
+                data: {
+                    height: blockHeight,
+                    tokenId: tokenId.toString(),
+                    address: address.toBase58(),
+                    amount: BigInt(currentBalance.amount) + amount.toBigInt(),
+                },
+            });
+        }
+    }
+};
+
 export const handleBalancesMintToken = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
     block: Block,
@@ -28,25 +163,7 @@ export const handleBalancesMintToken = async (
         amount: amount.toBigInt(),
     });
 
-    const currentBalance = await client.balance.findFirst({
-        where: {
-            address: address.toBase58(),
-            tokenId: tokenId.toString(),
-        },
-        orderBy: { height: "desc" },
-    });
-
-    const previousAmount = currentBalance ? BigInt(currentBalance.amount) : 0n;
-    const newAmount = previousAmount + amount.toBigInt();
-
-    await client.balance.create({
-        data: {
-            height: Number(block.height.toString()),
-            tokenId: tokenId.toString(),
-            address: address.toBase58(),
-            amount: newAmount,
-        },
-    });
+    await increaseUserBalance(client, Number(block.height.toString()), tokenId, address, amount);
 
     const currentToken = await client.token.findFirst({
         where: {
@@ -91,25 +208,7 @@ export const handleBalancesBurnToken = async (
         amount: amount.toBigInt(),
     });
 
-    const currentBalance = await client.balance.findFirst({
-        where: {
-            address: address.toBase58(),
-            tokenId: tokenId.toString(),
-        },
-        orderBy: { height: "desc" },
-    });
-
-    const previousAmount = currentBalance ? BigInt(currentBalance.amount) : 0n;
-    const newAmount = previousAmount - amount.toBigInt();
-
-    await client.balance.create({
-        data: {
-            height: Number(block.height.toString()),
-            tokenId: tokenId.toString(),
-            address: address.toBase58(),
-            amount: newAmount,
-        },
-    });
+    await decreaseUserBalance(client, Number(block.height.toString()), tokenId, address, amount);
 
     const currentToken = await client.token.findFirst({
         where: {
@@ -178,43 +277,6 @@ export const handleBalancesSafeTransfer = async (
     const [tokenId, from, to, amount]: [TokenId, PublicKey, PublicKey, Balance] =
         await parameterDecoder.decode(tx.tx.argsFields, tx.tx.auxiliaryData);
 
-    const currentFromBalance = await client.balance.findFirst({
-        where: {
-            address: from.toBase58(),
-            tokenId: tokenId.toString(),
-        },
-        orderBy: { height: "desc" },
-    });
-
-    const previousFromAmount = currentFromBalance ? BigInt(currentFromBalance.amount) : 0n;
-    const newFromAmount = previousFromAmount - amount.toBigInt();
-
-    await client.balance.create({
-        data: {
-            height: Number(block.height.toString()),
-            tokenId: tokenId.toString(),
-            address: from.toBase58(),
-            amount: newFromAmount,
-        },
-    });
-
-    const currentToBalance = await client.balance.findFirst({
-        where: {
-            address: to.toBase58(),
-            tokenId: tokenId.toString(),
-        },
-        orderBy: { height: "desc" },
-    });
-
-    const previousToAmount = currentToBalance ? BigInt(currentToBalance.amount) : 0n;
-    const newToAmount = previousToAmount + amount.toBigInt();
-
-    await client.balance.create({
-        data: {
-            height: Number(block.height.toString()),
-            tokenId: tokenId.toString(),
-            address: to.toBase58(),
-            amount: newToAmount,
-        },
-    });
+    await decreaseUserBalance(client, Number(block.height.toString()), tokenId, from, amount);
+    await increaseUserBalance(client, Number(block.height.toString()), tokenId, to, amount);
 };

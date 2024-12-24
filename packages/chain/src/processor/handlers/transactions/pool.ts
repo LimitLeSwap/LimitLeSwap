@@ -13,6 +13,7 @@ import {
     handleSwapPrisma,
 } from "./utils";
 import { OrderBundle } from "../../../runtime/utils/limit-order";
+import { decreaseUserBalance, increaseUserBalance } from "./balances";
 
 export const handlePoolCreatePool = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
@@ -71,35 +72,22 @@ export const handlePoolCreatePool = async (
         totalLpAmount: lpAmount,
     });
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: sender.toBase58(),
-                tokenId: token0Id.toString(),
-            },
-        },
-        data: {
-            amount: {
-                decrement: token0Amount,
-            },
-        },
-    });
-
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: sender.toBase58(),
-                tokenId: token1Id.toString(),
-            },
-        },
-        data: {
-            amount: {
-                decrement: token1Amount,
-            },
-        },
-    });
+    console.log("Decreasing user balance", 1);
+    await decreaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        token0Id,
+        sender,
+        Balance.from(token0Amount)
+    );
+    console.log("Decreasing user balance", 2);
+    await decreaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        token1Id,
+        sender,
+        Balance.from(token1Amount)
+    );
 
     await client.balance.create({
         data: {
@@ -167,50 +155,32 @@ export const handlePoolAddLiquidity = async (
         totalLpAmount: lpAmount,
     });
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: tx.tx.sender.toBase58(),
-                tokenId: token0Id.toString(),
-            },
-        },
-        data: {
-            amount: {
-                decrement: token0Amount,
-            },
-        },
-    });
+    console.log("Decreasing user balance", 3);
+    await decreaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        token0Id,
+        tx.tx.sender,
+        Balance.from(token0Amount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: tx.tx.sender.toBase58(),
-                tokenId: token1Id.toString(),
-            },
-        },
-        data: {
-            amount: {
-                decrement: token1Amount,
-            },
-        },
-    });
+    console.log("Decreasing user balance", 4);
+    await decreaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        token1Id,
+        tx.tx.sender,
+        Balance.from(token1Amount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: tx.tx.sender.toBase58(),
-                tokenId: poolId.toString(),
-            },
-        },
-        data: {
-            amount: {
-                increment: lpAmount,
-            },
-        },
-    });
+    console.log("Increasing user balance", 1);
+    await increaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        poolId,
+        tx.tx.sender,
+        Balance.from(lpAmount)
+    );
 };
 
 export const handlePoolRemoveLiquidity = async (
@@ -269,50 +239,32 @@ export const handlePoolRemoveLiquidity = async (
         totalLpAmount: lpAmount,
     });
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: tx.tx.sender.toBase58(),
-                tokenId: token0Id.toString(),
-            },
-        },
-        data: {
-            amount: {
-                increment: token0Amount,
-            },
-        },
-    });
+    console.log("Increasing user balance", 2);
+    await increaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        token0Id,
+        tx.tx.sender,
+        Balance.from(token0Amount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: tx.tx.sender.toBase58(),
-                tokenId: token1Id.toString(),
-            },
-        },
-        data: {
-            amount: {
-                increment: token1Amount,
-            },
-        },
-    });
+    console.log("Increasing user balance", 3);
+    await increaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        token1Id,
+        tx.tx.sender,
+        Balance.from(token1Amount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: Number(block.height.toString()),
-                address: tx.tx.sender.toBase58(),
-                tokenId: poolId.toString(),
-            },
-        },
-        data: {
-            amount: {
-                decrement: lpAmount,
-            },
-        },
-    });
+    console.log("Decreasing user balance", 5);
+    await decreaseUserBalance(
+        client,
+        Number(block.height.toString()),
+        poolId,
+        tx.tx.sender,
+        Balance.from(lpAmount)
+    );
 };
 
 export const handlePoolSwap = async (
@@ -332,7 +284,7 @@ export const handlePoolSwap = async (
 
     await handleSwapPrisma(
         client,
-        tx.tx.hash.toString(),
+        tx.tx.hash().toString(),
         poolId.toString(),
         tx.tx.sender.toBase58(),
         tokenIn,

@@ -1,7 +1,8 @@
 import { BlockHandler } from "@proto-kit/processor";
 import { Prisma, PrismaClient } from "@prisma/client-processor";
 import { Balance, TokenId } from "@proto-kit/library";
-import { Poseidon } from "o1js";
+import { Poseidon, PublicKey } from "o1js";
+import { increaseUserBalance, decreaseUserBalance } from "./balances";
 
 export const FEE_TIERS = [1, 5, 30, 100];
 
@@ -139,6 +140,22 @@ export const handleSwapPrisma = async (
 
     const token0In1Out = tokenIn.toString() === token0Id;
 
+    console.table({
+        swapId,
+        poolId,
+        token0Id,
+        token1Id,
+        tokenIn: tokenIn.toString(),
+        tokenOut: tokenOut.toString(),
+        tokenInAmount: tokenInAmount.toBigInt(),
+        tokenOutAmount: tokenOutAmount.toBigInt(),
+        token0In1Out,
+        token0Price: token0Price.toString(),
+        token1Price: token1Price.toString(),
+        blockHeight,
+        owner,
+    });
+
     await client.swap.create({
         data: {
             swapId,
@@ -155,6 +172,8 @@ export const handleSwapPrisma = async (
         },
     });
 
+    console.log("Created swap");
+
     if (token0In1Out) {
         await client.pool.update({
             where: {
@@ -169,6 +188,8 @@ export const handleSwapPrisma = async (
                 },
             },
         });
+
+        console.log("Updated pool-1");
     } else {
         await client.pool.update({
             where: {
@@ -183,37 +204,26 @@ export const handleSwapPrisma = async (
                 },
             },
         });
+        console.log("Updated pool-2");
     }
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: blockHeight,
-                address: owner,
-                tokenId: tokenIn.toString(),
-            },
-        },
-        data: {
-            amount: {
-                decrement: tokenInAmount.toBigInt(),
-            },
-        },
-    });
+    console.log("Decreasing user balance", 6);
+    await decreaseUserBalance(
+        client,
+        blockHeight,
+        tokenIn,
+        PublicKey.fromBase58(owner),
+        tokenInAmount
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: blockHeight,
-                address: owner,
-                tokenId: tokenOut.toString(),
-            },
-        },
-        data: {
-            amount: {
-                increment: tokenOutAmount.toBigInt(),
-            },
-        },
-    });
+    console.log("Increasing user balance", 4);
+    await increaseUserBalance(
+        client,
+        blockHeight,
+        tokenOut,
+        PublicKey.fromBase58(owner),
+        tokenOutAmount
+    );
 
     await updatePriceCandle(
         client,
@@ -224,6 +234,8 @@ export const handleSwapPrisma = async (
         tokenOutAmount,
         blockHeight
     );
+
+    console.log("Updated candle");
 };
 
 export const handleExecuteLimitOrderPrisma = async (
@@ -285,65 +297,41 @@ export const handleExecuteLimitOrderPrisma = async (
         },
     });
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: blockHeight,
-                address: executer,
-                tokenId: tokenIn,
-            },
-        },
-        data: {
-            amount: {
-                decrement: tokenInAmount,
-            },
-        },
-    });
+    console.log("Decreasing user balance", 7);
+    await decreaseUserBalance(
+        client,
+        blockHeight,
+        TokenId.from(tokenIn),
+        PublicKey.fromBase58(executer),
+        Balance.from(tokenInAmount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: blockHeight,
-                address: executer,
-                tokenId: tokenOut,
-            },
-        },
-        data: {
-            amount: {
-                increment: tokenOutAmount,
-            },
-        },
-    });
+    console.log("Increasing user balance", 5);
+    await increaseUserBalance(
+        client,
+        blockHeight,
+        TokenId.from(tokenOut),
+        PublicKey.fromBase58(executer),
+        Balance.from(tokenOutAmount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: blockHeight,
-                address: owner,
-                tokenId: tokenOut,
-            },
-        },
-        data: {
-            amount: {
-                decrement: tokenOutAmount,
-            },
-        },
-    });
+    console.log("Decreasing user balance", 8);
+    await decreaseUserBalance(
+        client,
+        blockHeight,
+        TokenId.from(tokenOut),
+        PublicKey.fromBase58(owner),
+        Balance.from(tokenOutAmount)
+    );
 
-    await client.balance.update({
-        where: {
-            height_address_tokenId: {
-                height: blockHeight,
-                address: owner,
-                tokenId: tokenIn,
-            },
-        },
-        data: {
-            amount: {
-                increment: tokenInAmount,
-            },
-        },
-    });
+    console.log("Increasing user balance", 6);
+    await increaseUserBalance(
+        client,
+        blockHeight,
+        TokenId.from(tokenIn),
+        PublicKey.fromBase58(owner),
+        Balance.from(tokenInAmount)
+    );
 
     await updatePriceCandle(
         client,
