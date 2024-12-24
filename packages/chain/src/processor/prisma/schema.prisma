@@ -21,8 +21,15 @@ datasource db {
 
 model Block {
   height Int @id
-  // balances Balance[]
-  // swaps    Swap[]
+  timestamp DateTime @default(now())
+}
+
+model Token {
+  tokenId String @id
+  decimals Int
+  totalSupply BigInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Balance {
@@ -30,12 +37,10 @@ model Balance {
   tokenId String
   address String
   amount  BigInt
-  // block   Block @relation(fields: [height], references: [height])
-  // token   Token @relation(fields: [tokenId], references: [tokenId])
 
   @@id([height, address, tokenId])
-  // @@index([address])
-  // @@index([tokenId])
+  @@index([tokenId])
+  @@index([address])
 }
 
 model Pool {
@@ -47,9 +52,7 @@ model Pool {
   totalLpAmount BigInt
   feePercentage Int
   createdAt DateTime @default(now())
-
-  // swaps    Swap[]
-  // orders   LimitOrder[]
+  updatedAt DateTime @updatedAt
 }
 
 model Swap {
@@ -63,23 +66,12 @@ model Swap {
   blockHeight Int
   owner String
   createdAt DateTime @default(now())
-
-  // pool   Pool   @relation(fields: [poolId], references: [poolId])
-  // block  Block  @relation(fields: [blockHeight], references: [height])
-}
-
-model Token {
-  tokenId String @id
-  decimals Int
-  totalSupply BigInt
-  createdAt DateTime @default(now())
-  
-  // balances Balance[]
 }
 
 model LimitOrder {
   orderId String @id
   poolId String
+
   token0Amount BigInt
   token1Amount BigInt
   token0Price Decimal @db.Decimal(38, 18)
@@ -88,9 +80,9 @@ model LimitOrder {
   owner String
   active Boolean
   expireBlock Int
+  
   createdAt DateTime @default(now())
-
-  // pool Pool @relation(fields: [poolId], references: [poolId])
+  updatedAt DateTime @updatedAt
 
   @@index([active])
   @@index([owner])
@@ -102,14 +94,30 @@ model LimitOrder {
 
 }
 
-// Todo: probably need to add more fields
-model TokenTrade {
-  tradeId       String @id
-  poolId        String
-  token0Amount  Decimal @db.Decimal(38, 18)
-  token1Amount  Decimal @db.Decimal(38, 18)
-  token0Price   Decimal @db.Decimal(38, 18)
-  token1Price   Decimal @db.Decimal(38, 18)
-  token0In1Out  Boolean
-  createdAt     DateTime @default(now())
+model BlockCandle {
+  id String @id
+  blockHeight Int
+  poolId String
+
+  token0Id String
+  token1Id String
+
+  openT0 Decimal @db.Decimal(38, 18)
+  highT0 Decimal @db.Decimal(38, 18)
+  lowT0 Decimal @db.Decimal(38, 18)
+  closeT0 Decimal @db.Decimal(38, 18)
+  volumeT0 BigInt
+
+  openT1 Decimal @db.Decimal(38, 18)
+  highT1 Decimal @db.Decimal(38, 18)
+  lowT1 Decimal @db.Decimal(38, 18)
+  closeT1 Decimal @db.Decimal(38, 18)
+  volumeT1 BigInt
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([blockHeight])
+  @@index([poolId])
+  @@index([token0Id, token1Id])
 }
