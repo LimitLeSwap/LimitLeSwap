@@ -54,7 +54,7 @@ export const handleCreateLimitOrder = async (
             token0In1Out,
             owner: sender,
             active: true,
-            expireBlock: expirationBlock,
+            expireBlock: expirationBlock + Number(block.height.toString()),
             createdAt: new Date(),
         },
     });
@@ -70,7 +70,7 @@ export const handleCreateLimitOrder = async (
         token0In1Out: newOrder.token0In1Out,
         owner: newOrder.owner,
         active: newOrder.active,
-        expireBlock: newOrder.expireBlock,
+        expireBlock: expirationBlock + Number(block.height.toString()),
     });
 };
 
