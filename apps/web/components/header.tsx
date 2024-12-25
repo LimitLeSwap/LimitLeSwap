@@ -9,23 +9,21 @@ import { ModeToggle } from "./mode-toggle";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "./ui/scroll-area";
 import Web3wallet from "./web3wallet";
+import { useAppStore } from "@/lib/stores/appStore";
 
 export interface HeaderProps {
   loading: boolean;
-  isMobile: boolean;
   blockHeight?: string;
 }
 
-export default function Header({
-  loading,
-  isMobile,
-  blockHeight,
-}: HeaderProps) {
+export default function Header({ loading, blockHeight }: HeaderProps) {
   const router = useRouter();
   const handleNavigate = (path: string) => {
     router.push(path);
   };
   const balances = useBalancesStore();
+  const { isMobile } = useAppStore();
+
   return (
     <div className="flex items-center p-4 py-6 sm:justify-start md:justify-evenly xl:justify-between">
       <div className=" flex ">

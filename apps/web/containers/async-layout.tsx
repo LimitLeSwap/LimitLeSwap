@@ -1,6 +1,7 @@
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
+import { useAppStore } from "@/lib/stores/appStore";
 import { useObserveBalance } from "@/lib/stores/balances";
 import { useChainStore, usePollBlockHeight } from "@/lib/stores/chain";
 import { useClientStore } from "@/lib/stores/client";
@@ -12,7 +13,7 @@ export default function AsyncLayout({ children }: { children: ReactNode }) {
   const wallet = useWalletStore();
   const client = useClientStore();
   const chain = useChainStore();
-  const [isMobile, setIsMobile] = useState(false);
+  const appStore = useAppStore();
 
   usePollBlockHeight();
   useObserveBalance();
@@ -30,7 +31,7 @@ export default function AsyncLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const isMobile = window.matchMedia("(max-width: 640px)").matches;
     console.log("isMobile", isMobile);
-    setIsMobile(isMobile);
+    appStore.setMobile(isMobile);
   }, []);
 
   return (
@@ -38,7 +39,6 @@ export default function AsyncLayout({ children }: { children: ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="light">
         <Header
           loading={client.loading}
-          isMobile={isMobile}
           blockHeight={chain.block?.height ?? "-"}
         />
         {children}

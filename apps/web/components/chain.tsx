@@ -76,8 +76,6 @@ export function Chain({ height }: ChainProps) {
 
           const feeTier = Number(pool.fee.toString());
 
-          console.log(feeTier);
-
           const lpTokenSupply =
             await client.client!.query.runtime.Balances.circulatingSupply.get(
               TokenId.from(poolId.toString()),
@@ -96,14 +94,6 @@ export function Chain({ height }: ChainProps) {
 
             poolList.push(pool);
           } else {
-            const smallerTokenId = token1Id;
-            const smallerToken = tokenList.find(
-              (token) => token.tokenId === token1Id,
-            );
-            const biggerTokenId = token0Id;
-            const biggerToken = tokenList.find(
-              (token) => token.tokenId === token0Id,
-            );
             const pool: Pool = {
               poolId: poolId.toString(),
               token0: tokenList.find((token) => token.tokenId === token1Id)!,
@@ -147,9 +137,6 @@ export function Chain({ height }: ChainProps) {
             positionList.push(position);
           }
         }
-
-        // poolStore.setPoolList(poolList);
-        // poolStore.setPositionList(positionList);
 
         if (!isEqual(previousPoolListRef.current, poolList)) {
           poolStore.setPoolList(poolList);
