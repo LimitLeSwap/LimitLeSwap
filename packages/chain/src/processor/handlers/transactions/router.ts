@@ -29,6 +29,14 @@ export const handleRouterTradeRoute = async (
 
         const poolId = calculatePoolId(step.tokenIn, step.tokenOut);
 
+        if (
+            (step.tokenIn.toBigInt() === 0n && step.tokenOut.toBigInt() === 0n) ||
+            (step.amountIn.toBigInt() === 0n && step.amountOut.toBigInt() === 0n)
+        ) {
+            console.log("Filler step");
+            continue;
+        }
+
         await handleSwapWithLimitOrderPrisma(
             client,
             tx.tx.hash().toString(),
