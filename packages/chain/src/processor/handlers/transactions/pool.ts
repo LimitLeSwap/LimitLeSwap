@@ -9,8 +9,8 @@ import {
     calculatePoolId,
     FEE_TIERS,
     getToken0AndToken1,
-    handleExecuteLimitOrderPrisma,
     handleSwapPrisma,
+    handleSwapWithLimitOrderPrisma,
 } from "./utils";
 import { OrderBundle } from "../../../runtime/utils/limit-order";
 import { decreaseUserBalance, increaseUserBalance } from "./balances";
@@ -315,45 +315,16 @@ export const handlePoolSwapWithLimit = async (
 
     const poolId = calculatePoolId(tokenIn, tokenOut);
 
-    let remainingAmountIn = amountIn;
-    let remainingAmountOut = amountOut;
-
-    for (const order of limitOrders.bundle) {
-        const result = await handleExecuteLimitOrderPrisma(
-            client,
-            remainingAmountIn,
-            remainingAmountOut,
-            order.toString(),
-            tx.tx.sender.toBase58(),
-            Number(block.height.toString())
-        );
-
-        if (result) {
-            const { remainingTokenIn, remainingTokenOut } = result;
-            remainingAmountIn = Balance.from(remainingTokenIn);
-            remainingAmountOut = Balance.from(remainingTokenOut);
-
-            console.log(`Limit order executed: ${order.toString()}`);
-            console.table({
-                remainingAmountIn: remainingAmountIn.toBigInt(),
-                remainingAmountOut: remainingAmountOut.toBigInt(),
-            });
-        } else {
-            console.log("Filler order executed");
-        }
-    }
-
-    await handleSwapPrisma(
+    handleSwapWithLimitOrderPrisma(
         client,
-        tx.tx.hash.toString(),
+        tx.tx.hash().toString(),
         poolId.toString(),
         tx.tx.sender.toBase58(),
         tokenIn,
         tokenOut,
-        remainingAmountIn,
-        remainingAmountOut,
+        amountIn,
+        amountOut,
+        limitOrders.bundle,
         Number(block.height.toString())
     );
-
-    console.log(`Swap with limit executed`);
 };

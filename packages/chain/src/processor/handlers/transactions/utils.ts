@@ -1,7 +1,7 @@
 import { BlockHandler } from "@proto-kit/processor";
 import { Prisma, PrismaClient } from "@prisma/client-processor";
 import { Balance, TokenId } from "@proto-kit/library";
-import { Poseidon, PublicKey } from "o1js";
+import { Field, Poseidon, PublicKey } from "o1js";
 import { increaseUserBalance, decreaseUserBalance } from "./balances";
 
 export const FEE_TIERS = [1, 5, 30, 100];
@@ -126,7 +126,7 @@ export const updatePriceCandle = async (
 
 export const handleSwapPrisma = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
-    swapId: string,
+    txHash: string,
     poolId: string,
     owner: string,
     tokenIn: TokenId,
@@ -141,7 +141,7 @@ export const handleSwapPrisma = async (
     const token0In1Out = tokenIn.toString() === token0Id;
 
     console.table({
-        swapId,
+        txHash,
         poolId,
         token0Id,
         token1Id,
@@ -158,7 +158,7 @@ export const handleSwapPrisma = async (
 
     await client.swap.create({
         data: {
-            swapId,
+            txHash,
             poolId,
             // token0Id: token0Id.toString(),
             // token1Id: token1Id.toString(),
@@ -347,4 +347,59 @@ export const handleExecuteLimitOrderPrisma = async (
         remainingTokenIn: totalTokenIn.toBigInt() - tokenInAmount,
         remainingTokenOut: totalTokenOut.toBigInt() - tokenOutAmount,
     };
+};
+
+export const handleSwapWithLimitOrderPrisma = async (
+    client: Parameters<BlockHandler<PrismaClient>>[0],
+    txHash: string,
+    poolId: string,
+    owner: string,
+    tokenIn: TokenId,
+    tokenOut: TokenId,
+    tokenInAmount: Balance,
+    tokenOutAmount: Balance,
+    bundle: Field[],
+    blockHeight: number
+) => {
+    let remainingAmountIn = tokenInAmount;
+    let remainingAmountOut = tokenOutAmount;
+
+    for (const order of bundle) {
+        const result = await handleExecuteLimitOrderPrisma(
+            client,
+            remainingAmountIn,
+            remainingAmountOut,
+            order.toString(),
+            owner,
+            blockHeight
+        );
+
+        if (result) {
+            const { remainingTokenIn, remainingTokenOut } = result;
+            remainingAmountIn = Balance.from(remainingTokenIn);
+            remainingAmountOut = Balance.from(remainingTokenOut);
+
+            console.log(`Limit order executed: ${order.toString()}`);
+            console.table({
+                remainingAmountIn: remainingAmountIn.toBigInt(),
+                remainingAmountOut: remainingAmountOut.toBigInt(),
+            });
+        } else {
+            console.log("Filler order executed");
+        }
+    }
+
+    await handleSwapPrisma(
+        client,
+        txHash,
+        poolId,
+        owner,
+        tokenIn,
+        tokenOut,
+        remainingAmountIn,
+        remainingAmountOut,
+        blockHeight
+    );
+
+    console.log(`Swap with limit executed`);
 };

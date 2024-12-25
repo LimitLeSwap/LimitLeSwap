@@ -5,7 +5,7 @@ import { InMemorySigner } from "@proto-kit/sdk";
 import { Balances } from "../runtime/modules/balances";
 import { Route } from "../runtime/utils/route";
 
-let tokens = [];
+let tokens: Field[] = [];
 
 // you are seeing this because I was too lazy to use .env. steal this key if you want :p
 const publisherKey = PrivateKey.fromBase58("EKEot89cv2Uq217QaeePEJwoXyVdck7haEwFqJxoSKXmvUntfpTw");
@@ -15,6 +15,10 @@ const signer = PrivateKey.random();
 const sender = signer.toPublicKey();
 
 const wallet = PublicKey.fromBase58("B62qnBa7PPM4VrE3LqXx7HjDWPDTs1ePdV7hwwuSkmT31Lrr1CQpJna");
+const wallet2PrivateKey = PrivateKey.fromBase58(
+    "EKEDyzWWq3TqXtRoHRSqxe5RsWwtNWMEGFzMdBUwQaA8YQNkftRd"
+);
+const wallet2 = PublicKey.fromBase58("B62qkAgUzx3rjcyeg4EcRTDpbQeE1opbUsgT2A6jfYoNgVza3kxzGz5");
 
 let nonce = 0;
 
@@ -59,6 +63,14 @@ const initEnv = async () => {
 
             mintTx = await appChain.transaction(publisher, async () => {
                 await balances.mintToken(tokenId, publisher, PUInt64.from(1000000000));
+            });
+
+            mintTx.transaction!.nonce = UInt64.from(nonce++);
+            mintTx.transaction = mintTx.transaction?.sign(publisherKey);
+            await mintTx.send();
+
+            mintTx = await appChain.transaction(publisher, async () => {
+                await balances.mintToken(tokenId, wallet2, PUInt64.from(1000000000));
             });
 
             mintTx.transaction!.nonce = UInt64.from(nonce++);
@@ -141,8 +153,18 @@ const testTransactions = async () => {
     console.log("Testing trade route");
     const emptyRoute = Route.empty();
 
-    const tx = await appChain.transaction(publisher, async () => {
+    let tx = await appChain.transaction(publisher, async () => {
         await router.tradeRoute(emptyRoute);
+    });
+
+    tx.transaction!.nonce = UInt64.from(nonce++);
+    tx.transaction = tx.transaction?.sign(publisherKey);
+    await tx.send();
+
+    console.log("Testing pool swap");
+
+    tx = await appChain.transaction(publisher, async () => {
+        await pool.swap(tokens[0], tokens[1], Balance.from(10000000), Balance.from(15660316));
     });
 
     tx.transaction!.nonce = UInt64.from(nonce++);

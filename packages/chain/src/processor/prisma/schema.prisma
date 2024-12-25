@@ -56,7 +56,8 @@ model Pool {
 }
 
 model Swap {
-  swapId String @id
+  id Int @id @default(autoincrement())
+  txHash String
   poolId String
   token0Amount BigInt
   token1Amount BigInt

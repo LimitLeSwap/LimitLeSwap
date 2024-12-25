@@ -47,7 +47,8 @@ CREATE TABLE "Pool" (
 
 -- CreateTable Swap
 CREATE TABLE "Swap" (
-    "swapId" TEXT NOT NULL,
+    "id" SERIAL,
+    "txHash" TEXT NOT NULL,
     "poolId" TEXT NOT NULL,
     "token0Amount" BIGINT NOT NULL,
     "token1Amount" BIGINT NOT NULL,
@@ -57,7 +58,7 @@ CREATE TABLE "Swap" (
     "blockHeight" INTEGER NOT NULL,
     "owner" TEXT NOT NULL,
     "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT "Swap_pkey" PRIMARY KEY ("swapId")
+    CONSTRAINT "Swap_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable LimitOrder
