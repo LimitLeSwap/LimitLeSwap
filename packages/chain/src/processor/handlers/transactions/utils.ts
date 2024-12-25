@@ -56,6 +56,68 @@ export const getToken0AndToken1WithPrices = (
     };
 };
 
+export const getToken0AndToken1WithPricesV2 = async (
+    client: Parameters<BlockHandler<PrismaClient>>[0],
+    tokenA: TokenId,
+    tokenB: TokenId,
+    tokenAmountA: Balance,
+    tokenAmountB: Balance
+) => {
+    const token0Id = tokenA.toBigInt() < tokenB.toBigInt() ? tokenA : tokenB;
+    const token1Id = tokenA.toBigInt() < tokenB.toBigInt() ? tokenB : tokenA;
+
+    const poolId = Poseidon.hash([token0Id, token1Id]);
+
+    const pool = await client.pool.findUnique({
+        where: {
+            poolId: poolId.toString(),
+        },
+    });
+
+    if (pool == null) {
+        throw new Error(`Pool ${poolId} not found`);
+    }
+
+    const { token0Amount: token0AmountBefore, token1Amount: token1AmountBefore } = pool;
+
+    const token0Amount =
+        tokenA.toBigInt() < tokenB.toBigInt() ? tokenAmountA.toBigInt() : tokenAmountB.toBigInt();
+    const token1Amount =
+        tokenA.toBigInt() < tokenB.toBigInt() ? tokenAmountB.toBigInt() : tokenAmountA.toBigInt();
+
+    const token0AmountAfter = token0AmountBefore + token0Amount;
+    const token1AmountAfter = token1AmountBefore + token1Amount;
+
+    const token0PriceBefore = new Prisma.Decimal(token0AmountBefore.toString()).div(
+        token1AmountBefore.toString()
+    );
+    const token1PriceBefore = new Prisma.Decimal(token1AmountBefore.toString()).div(
+        token0AmountBefore.toString()
+    );
+
+    const token0PriceAfter = new Prisma.Decimal(token0AmountAfter.toString()).div(
+        token1AmountAfter.toString()
+    );
+    const token1PriceAfter = new Prisma.Decimal(token1AmountAfter.toString()).div(
+        token0AmountAfter.toString()
+    );
+
+    return {
+        token0Id: token0Id.toString(),
+        token1Id: token1Id.toString(),
+        token0AmountBefore,
+        token1AmountBefore,
+        token0PriceBefore,
+        token1PriceBefore,
+        token0Amount,
+        token1Amount,
+        token0AmountAfter,
+        token1AmountAfter,
+        token0PriceAfter,
+        token1PriceAfter,
+    };
+};
+
 export const updatePriceCandle = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
     poolId: string,
@@ -67,45 +129,110 @@ export const updatePriceCandle = async (
 ) => {
     const candleId = `${poolId}-${blockHeight}`;
 
-    const { token0Id, token1Id, token0Amount, token1Amount, token0Price, token1Price } =
-        getToken0AndToken1WithPrices(tokenIn, tokenOut, tokenInAmount, tokenOutAmount);
+    const {
+        token0Id,
+        token1Id,
+        token0AmountBefore,
+        token1AmountBefore,
+        token0PriceBefore,
+        token1PriceBefore,
+        token0Amount,
+        token1Amount,
+        token0AmountAfter,
+        token1AmountAfter,
+        token0PriceAfter,
+        token1PriceAfter,
+    } = await getToken0AndToken1WithPricesV2(
+        client,
+        tokenIn,
+        tokenOut,
+        tokenInAmount,
+        tokenOutAmount
+    );
 
     const existingCandle = await client.blockCandle.findUnique({
         where: { id: candleId },
     });
 
     if (!existingCandle) {
-        await client.blockCandle.create({
-            data: {
-                id: candleId,
-                blockHeight,
+        const mostRecentCandle = await client.blockCandle.findFirst({
+            where: {
                 poolId,
-
-                token0Id,
-                token1Id,
-
-                openT0: token0Price,
-                highT0: token0Price,
-                lowT0: token0Price,
-                closeT0: token0Price,
-                volumeT0: token0Amount,
-
-                openT1: token1Price,
-                highT1: token1Price,
-                lowT1: token1Price,
-                closeT1: token1Price,
-                volumeT1: token1Amount,
+            },
+            orderBy: {
+                id: "desc",
             },
         });
+
+        if (mostRecentCandle) {
+            const openT0 = mostRecentCandle.closeT0;
+            const openT1 = mostRecentCandle.closeT1;
+
+            const highT0 = Prisma.Decimal.max(openT0, token0PriceAfter);
+            const lowT0 = Prisma.Decimal.min(openT0, token0PriceAfter);
+            const closeT0 = token0PriceAfter;
+            const volumeT0 = token0Amount;
+
+            const highT1 = Prisma.Decimal.max(openT1, token1PriceAfter);
+            const lowT1 = Prisma.Decimal.min(openT1, token1PriceAfter);
+            const closeT1 = token1PriceAfter;
+            const volumeT1 = token1Amount;
+
+            await client.blockCandle.create({
+                data: {
+                    id: candleId,
+                    blockHeight,
+                    poolId,
+
+                    token0Id,
+                    token1Id,
+
+                    openT0,
+                    highT0,
+                    lowT0,
+                    closeT0,
+                    volumeT0,
+
+                    openT1,
+                    highT1,
+                    lowT1,
+                    closeT1,
+                    volumeT1,
+                },
+            });
+        } else {
+            await client.blockCandle.create({
+                data: {
+                    id: candleId,
+                    blockHeight,
+                    poolId,
+
+                    token0Id,
+                    token1Id,
+
+                    openT0: token0PriceBefore,
+                    highT0: Prisma.Decimal.max(token0PriceBefore, token0PriceAfter),
+                    lowT0: Prisma.Decimal.min(token0PriceBefore, token0PriceAfter),
+                    closeT0: token0PriceAfter,
+                    volumeT0: token0Amount,
+
+                    openT1: token1PriceBefore,
+                    highT1: Prisma.Decimal.max(token1PriceBefore, token1PriceAfter),
+                    lowT1: Prisma.Decimal.min(token1PriceBefore, token1PriceAfter),
+                    closeT1: token1PriceAfter,
+                    volumeT1: token1Amount,
+                },
+            });
+        }
     } else {
-        const highT0 = Prisma.Decimal.max(existingCandle.highT0, token0Price);
-        const lowT0 = Prisma.Decimal.min(existingCandle.lowT0, token0Price);
-        const closeT0 = token0Price;
+        const highT0 = Prisma.Decimal.max(existingCandle.highT0, token0PriceAfter);
+        const lowT0 = Prisma.Decimal.min(existingCandle.lowT0, token0PriceAfter);
+        const closeT0 = token0PriceAfter;
         const volumeT0 = existingCandle.volumeT0 + token0Amount;
 
-        const highT1 = Prisma.Decimal.max(existingCandle.highT1, token1Price);
-        const lowT1 = Prisma.Decimal.min(existingCandle.lowT1, token1Price);
-        const closeT1 = token1Price;
+        const highT1 = Prisma.Decimal.max(existingCandle.highT1, token1PriceAfter);
+        const lowT1 = Prisma.Decimal.min(existingCandle.lowT1, token1PriceAfter);
+        const closeT1 = token1PriceAfter;
         const volumeT1 = existingCandle.volumeT1 + token1Amount;
 
         await client.blockCandle.update({
@@ -135,8 +262,26 @@ export const handleSwapPrisma = async (
     tokenOutAmount: Balance,
     blockHeight: number
 ) => {
-    const { token0Id, token1Id, token0Amount, token1Amount, token0Price, token1Price } =
-        getToken0AndToken1WithPrices(tokenIn, tokenOut, tokenInAmount, tokenOutAmount);
+    const {
+        token0Id,
+        token1Id,
+        token0AmountBefore,
+        token1AmountBefore,
+        token0PriceBefore,
+        token1PriceBefore,
+        token0Amount,
+        token1Amount,
+        token0AmountAfter,
+        token1AmountAfter,
+        token0PriceAfter,
+        token1PriceAfter,
+    } = await getToken0AndToken1WithPricesV2(
+        client,
+        tokenIn,
+        tokenOut,
+        tokenInAmount,
+        tokenOutAmount
+    );
 
     const token0In1Out = tokenIn.toString() === token0Id;
 
@@ -150,8 +295,8 @@ export const handleSwapPrisma = async (
         tokenInAmount: tokenInAmount.toBigInt(),
         tokenOutAmount: tokenOutAmount.toBigInt(),
         token0In1Out,
-        token0Price: token0Price.toString(),
-        token1Price: token1Price.toString(),
+        token0Price: token0PriceAfter.toString(),
+        token1Price: token1PriceAfter.toString(),
         blockHeight,
         owner,
     });
@@ -165,8 +310,8 @@ export const handleSwapPrisma = async (
             token0Amount,
             token1Amount,
             token0In1Out,
-            token0Price,
-            token1Price,
+            token0Price: token0PriceAfter,
+            token1Price: token1PriceAfter,
             blockHeight,
             owner,
         },

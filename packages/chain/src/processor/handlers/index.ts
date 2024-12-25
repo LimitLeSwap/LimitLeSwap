@@ -24,6 +24,13 @@ const handleTransactions: BlockHandler<PrismaClient> = async (
     for (const tx of block.transactions) {
         const methodId = tx.tx.methodId.toBigInt();
 
+        if (!tx.status.toBoolean()) {
+            console.log(
+                `Transaction ${tx.tx.hash().toString()} failed, due to ${tx.statusMessage}. Skipping.`
+            );
+            continue;
+        }
+
         const methodDescriptor = appChain.runtime.methodIdResolver.getMethodNameFromId(methodId);
 
         if (methodDescriptor === undefined) {
