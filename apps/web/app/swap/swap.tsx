@@ -44,8 +44,6 @@ export default function Swap() {
     priceImpact: "0",
   });
 
-  const [seePoolDetails, setSeePoolDetails] = useState(false);
-  const [newPool, setNewPool] = useState<Pool | null>(null);
   const [waitApproval, setWaitApproval] = useState(false);
   const [route, setRoute] = useState<CompleteRoute | null>(null);
   const [limitState, setlimitState] = useState<{
@@ -83,7 +81,6 @@ export default function Swap() {
         buyAmount: 0,
         priceImpact: "0",
       }));
-      setNewPool(null);
       setlimitState({
         execute: false,
         ordersToFill: [],
@@ -186,6 +183,12 @@ export default function Swap() {
           const tokenOut = TokenId.from(buyToken?.tokenId);
           const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
           const amountOut = Balance.from(Math.floor(state.buyAmount));
+
+          console.table({
+            amountIn: amountIn.toBigInt(),
+            amountOut: amountOut.toBigInt(),
+          });
+
           const tx = await client.client.transaction(
             PublicKey.fromBase58(wallet),
             async () => {

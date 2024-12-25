@@ -23,6 +23,7 @@ import { DECIMALS } from "@/lib/constants";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { Card } from "@/components/ui/card";
 import { findTokenAndPoolByName } from "@/lib/common";
+import { useAppStore } from "@/lib/stores/appStore";
 
 export default function LimitOrder() {
   const walletStore = useWalletStore();
@@ -30,6 +31,8 @@ export default function LimitOrder() {
   const client = useClientStore();
 
   const wallet = walletStore.wallet;
+
+  const { isMobile } = useAppStore();
 
   const { toast } = useToast();
 

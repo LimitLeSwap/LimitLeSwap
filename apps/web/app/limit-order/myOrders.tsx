@@ -53,8 +53,6 @@ export default function MyOrders() {
   useEffect(() => {
     if (!client.client || !walletStore.wallet) return;
 
-    console.log("limitStore.limitOrders", limitStore.limitOrders);
-
     const orderList = limitStore.limitOrders.filter(
       (order) =>
         order.owner.toBase58() === walletStore.wallet &&
@@ -79,7 +77,7 @@ export default function MyOrders() {
       <CardContent>
         <Table>
           <TableBody>
-            <TableRow className=" w-100 flex flex-row items-center justify-between px-1 py-2">
+            <TableRow className=" w-100 flex flex-row items-center justify-between px-1 py-2 hover:bg-background">
               <TableCell className="flex p-0">
                 <div className=" font-sm text-red-600">Sell</div>
               </TableCell>
@@ -109,7 +107,7 @@ export default function MyOrders() {
 
                   return (
                     <TableRow
-                      className=" flex flex-row items-center justify-between px-1 py-4"
+                      className=" flex flex-row items-center justify-between px-1 py-1"
                       key={limitOrder.orderId}
                     >
                       <TableCell className="flex p-0 text-xs">
