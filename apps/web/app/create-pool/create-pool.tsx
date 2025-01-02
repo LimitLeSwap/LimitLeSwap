@@ -265,11 +265,31 @@ export default function CreatePool() {
             }}
             className="mt-6 w-full rounded-2xl"
           >
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="0">0.01%</TabsTrigger>
-              <TabsTrigger value="1">0.05%</TabsTrigger>
-              <TabsTrigger value="2">0.3%</TabsTrigger>
-              <TabsTrigger value="3">1%</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-gray-700">
+              <TabsTrigger
+                className="  rounded-2xl data-[state=active]:bg-background"
+                value="0"
+              >
+                0.01%
+              </TabsTrigger>
+              <TabsTrigger
+                className="  rounded-2xl data-[state=active]:bg-background"
+                value="1"
+              >
+                0.05%
+              </TabsTrigger>
+              <TabsTrigger
+                className="  rounded-2xl data-[state=active]:bg-background"
+                value="2"
+              >
+                0.3%
+              </TabsTrigger>
+              <TabsTrigger
+                className="  rounded-2xl data-[state=active]:bg-background"
+                value="3"
+              >
+                1%
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
