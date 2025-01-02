@@ -26,6 +26,8 @@ import { useChainStore } from "@/lib/stores/chain";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { findBestRoute } from "./utils/findRoute";
 import { findTokenAndPoolByName } from "@/lib/common";
+import PriceChart from "./priceChart";
+import { useChartStore, useObserveCandles } from "@/lib/stores/chartStore";
 
 export default function Swap() {
   const walletStore = useWalletStore();
@@ -34,6 +36,7 @@ export default function Swap() {
   const chainStore = useChainStore();
   const poolStore = usePoolStore();
   const client = useClientStore();
+  const chartStore = useChartStore();
   const wallet = walletStore.wallet;
 
   const [state, setState] = useState({
@@ -60,7 +63,7 @@ export default function Swap() {
 
   const { toast } = useToast();
 
-  const [sellTokenObj, buyTokenObj] = useMemo(() => {
+  const [sellTokenObj, buyTokenObj, pool] = useMemo(() => {
     return findTokenAndPoolByName(state.sellToken, state.buyToken, poolStore);
   }, [
     state.sellToken,
@@ -72,6 +75,11 @@ export default function Swap() {
   useEffect(() => {
     if (!hasMounted || !sellTokenObj || !buyTokenObj) {
       return;
+    }
+
+    if (pool) {
+      console.log("setting pool", pool);
+      chartStore.setPool(pool);
     }
 
     const sellAmountNum = parseFloat(state.sellAmount);
@@ -119,7 +127,10 @@ export default function Swap() {
     limitStore,
     sellTokenObj,
     buyTokenObj,
+    pool,
   ]);
+
+  useObserveCandles();
 
   const handleSubmit = async () => {
     try {
@@ -258,7 +269,7 @@ export default function Swap() {
 
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
-      <div className="flex w-full max-w-[470px] sm:w-[470px]">
+      <div className="flex w-full max-w-[470px] flex-col gap-8 sm:w-[470px]">
         <Card className="flex w-full flex-col items-center border-0 shadow-none">
           <div className="mb-2 flex flex-row items-center justify-center gap-2">
             <h2 className="text-2xl font-bold">Swap</h2>
@@ -358,7 +369,7 @@ export default function Swap() {
                   {(limitState.bestAmountOut / Number(DECIMALS)).toFixed(6)}
                 </p>
               ) : null}
-              <p
+              {/* <p
                 className={
                   Number(state.priceImpact) > 30
                     ? " text-red-600"
@@ -368,7 +379,7 @@ export default function Swap() {
                 }
               >
                 Price Impact: {state.priceImpact} %
-              </p>
+              </p> */}
               {limitState.execute ? (
                 <p className=" text-green-600">
                   <span className=" text-xs">With LimitSwap:</span>{" "}
@@ -411,6 +422,18 @@ export default function Swap() {
             {wallet ? "Swap" : "Connect wallet"}
           </Button>
         </Card>
+        <PriceChart
+          candleData={
+            pool?.token0.name === state.sellToken
+              ? chartStore.chartData0
+              : chartStore.chartData1
+          }
+          volumeData={
+            pool?.token0.name === state.sellToken
+              ? chartStore.chartData0
+              : chartStore.chartData1
+          }
+        />
       </div>
     </div>
   );
