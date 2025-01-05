@@ -7,7 +7,7 @@ import { useChainStore } from "@/lib/stores/chain";
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useClientStore } from "@/lib/stores/client";
 import { Field, PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
@@ -54,11 +54,14 @@ export default function MyOrders() {
     if (!client.client || !walletStore.wallet) return;
 
     const orderList = limitStore.limitOrders.filter(
-      (order) =>
-        order.owner.toBase58() === walletStore.wallet &&
-        order.isActive &&
-        Number(order.expiration) > Number(chainStore.block?.height ?? 0),
+      (order) => order.owner === walletStore.wallet,
     );
+
+    limitStore.limitOrders.forEach((order) => {
+      console.log(order.owner, walletStore.wallet);
+      console.log(order.owner === walletStore.wallet);
+    });
+    console.log("orderList", orderList);
 
     setLimitOrders(orderList);
 
@@ -96,12 +99,12 @@ export default function MyOrders() {
                 limitOrders.length > 0 &&
                 limitOrders.map((limitOrder) => {
                   const tokenIn = findTokenByTokenId(
-                    limitOrder.tokenIn,
+                    limitOrder.tokenInId,
                     poolStore.tokenList ?? [],
                   );
 
                   const tokenOut = findTokenByTokenId(
-                    limitOrder.tokenOut,
+                    limitOrder.tokenOutId,
                     poolStore.tokenList ?? [],
                   );
 
@@ -121,7 +124,7 @@ export default function MyOrders() {
                       </TableCell>
 
                       <TableCell className="flex p-0 text-xs">
-                        {limitOrder.expiration}
+                        {limitOrder.expireBlock}
                       </TableCell>
                       <TableCell className="flex p-0 text-xs">
                         <Button

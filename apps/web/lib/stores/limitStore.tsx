@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import { useClientStore } from "./client";
 import { useChainStore } from "./chain";
 import { useEffect, useRef } from "react";
 import { Field, Provable, Struct } from "o1js";
@@ -69,71 +68,85 @@ export interface LimitState {
   setLimitOrders: (limitOrders: LimitOrder[]) => void;
 }
 
+export interface ActiveOrderInterface {
+  data: {
+    limitOrders: [LimitOrder];
+  };
+}
+
 export const useLimitStore = create<LimitState, [["zustand/immer", never]]>(
   immer((set) => ({
     limitOrders: [],
-    setLimitOrders: (_limitOrders: LimitOrder[]) =>
-      set({ limitOrders: _limitOrders }),
+    setLimitOrders: (newLimitOrders: LimitOrder[]) => {
+      set((state) => {
+        state.limitOrders = newLimitOrders;
+      });
+    },
   })),
 );
 
 export const useObserveOrders = () => {
-  const client = useClientStore();
   const chain = useChainStore();
   const limitStore = useLimitStore();
 
   const previousLimitOrdersRef = useRef<LimitOrder[]>(limitStore.limitOrders);
 
   useEffect(() => {
-    if (!client || !client.client) return;
+    console.log("Observing orders");
 
     (async () => {
-      let orderCount =
-        await client.client!.query.runtime.OrderBook.orderNonce.get();
+      // Wait for the chain to be processed
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (
-        !orderCount ||
-        !orderCount.value ||
-        !orderCount.value[1] ||
-        !orderCount.value[1][1]
-      ) {
-        return;
-      }
-      orderCount = orderCount.value[1][1].toString();
+      const graphql = process.env.NEXT_PUBLIC_PROTOKIT_PROCESSOR_GRAPHQL_URL;
 
-      const limitOrders: LimitOrder[] = [];
-
-      for (let i = 0; i < Number(orderCount); i++) {
-        const order = await client.client!.query.runtime.OrderBook.orders.get(
-          Field.from(i),
+      if (graphql === undefined) {
+        throw new Error(
+          "Environment variable NEXT_PUBLIC_PROTOKIT_PROCESSOR_GRAPHQL_URL not set, can't execute graphql requests",
         );
-
-        if (!order) {
-          continue;
-        }
-
-        limitOrders.push({
-          orderId: i,
-          expiration: order.expiration.toString(),
-          isActive: order.isActive.toBoolean(),
-          tokenIn: order.tokenIn.toString(),
-          tokenInAmount: order.tokenInAmount.toString(),
-          tokenOut: order.tokenOut.toString(),
-          tokenOutAmount: order.tokenOutAmount.toString(),
-          owner: order.owner,
-        });
       }
 
-      console.log("limit orders", limitOrders);
+      const response = await fetch(graphql, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `query GetActiveOrders {
+  limitOrders(where: {expireBlock: {gt: ${chain.block?.height}}, active: {equals: true}}) {
+    createdAt
+    expireBlock
+    orderId
+    owner
+    tokenInId
+    tokenInAmount
+    tokenOutAmount
+    tokenOutId
+  }
+}`,
+        }),
+      });
+
+      const { data } = (await response.json()) as ActiveOrderInterface;
+
+      // data && console.log("data", data);
+      // console.log("limit store", limitStore.limitOrders);
+      // console.log("ref", previousLimitOrdersRef.current);
+      // console.log(
+      //   "equal",
+      //   isEqual(previousLimitOrdersRef.current, [...data.limitOrders]),
+      // );
 
       if (
-        !isEqual(previousLimitOrdersRef.current, limitOrders) &&
-        limitOrders
+        data &&
+        data.limitOrders &&
+        !isEqual(previousLimitOrdersRef.current, [...data.limitOrders])
       ) {
-        console.log("setting limit orders", limitOrders);
-        limitStore.setLimitOrders(limitOrders);
-        previousLimitOrdersRef.current = limitOrders;
+        limitStore.setLimitOrders([...data.limitOrders]);
+        previousLimitOrdersRef.current = [...data.limitOrders];
       }
+
+      console.log("limit store", limitStore.limitOrders);
     })();
-  }, [client.client, chain.block?.height]);
+  }, [chain.block?.height]);
 };

@@ -34,14 +34,14 @@ declare global {
   }
 
   interface LimitOrder {
-    orderId: number;
-    expiration: string;
-    isActive: boolean;
-    tokenIn: string;
+    createdAt: string;
+    expireBlock: number;
+    orderId: string;
+    owner: string;
+    tokenInId: string;
     tokenInAmount: string;
-    tokenOut: string;
     tokenOutAmount: string;
-    owner: PublicKey;
+    tokenOutId: string;
   }
 
   interface RouteToken {
