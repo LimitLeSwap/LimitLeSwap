@@ -160,7 +160,7 @@ export const updatePriceCandle = async (
                 poolId,
             },
             orderBy: {
-                id: "desc",
+                updatedAt: "desc",
             },
         });
 
