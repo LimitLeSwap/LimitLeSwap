@@ -3,8 +3,8 @@ import { Prisma, PrismaClient } from "@prisma/client-processor";
 import { appChain } from "../../utils/app-chain";
 import { MethodParameterEncoder } from "@proto-kit/module";
 import { Block, TransactionExecutionResult } from "@proto-kit/sequencer";
-import { Balance, TokenId, UInt64 } from "@proto-kit/library";
-import { Field, Poseidon, Provable, PublicKey, UInt64 as o1ui64 } from "o1js";
+import { Balance, TokenId } from "@proto-kit/library";
+import { Field, Poseidon, UInt64 as o1ui64 } from "o1js";
 
 export const handleCreateLimitOrder = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
@@ -32,8 +32,14 @@ export const handleCreateLimitOrder = async (
             ? Poseidon.hash([tokenIn, tokenOut])
             : Poseidon.hash([tokenOut, tokenIn]);
 
-    const token0Price = tokenInBig > 0n ? (tokenOutBig * 10n ** 6n) / tokenInBig : 0n;
-    const token1Price = tokenOutBig > 0n ? (tokenInBig * 10n ** 6n) / tokenOutBig : 0n;
+    const token0Price =
+        tokenInBig > 0n
+            ? new Prisma.Decimal(tokenInAmount.toString()).div(tokenOutAmount.toString())
+            : new Prisma.Decimal(0);
+    const token1Price =
+        tokenOutBig > 0n
+            ? new Prisma.Decimal(tokenOutAmount.toString()).div(tokenInAmount.toString())
+            : new Prisma.Decimal(0);
 
     const token0In1Out = tokenInBig < tokenOutBig;
 
@@ -47,10 +53,16 @@ export const handleCreateLimitOrder = async (
         data: {
             orderId: currentNonce.toString(),
             poolId: poolId.toString(),
+            tokenInId: tokenIn.toString(),
+            tokenOutId: tokenOut.toString(),
+            tokenInAmount: tokenInBig,
+            tokenOutAmount: tokenOutBig,
+            tokenInPrice: token0In1Out ? token0Price : token1Price,
+            tokenOutPrice: token0In1Out ? token1Price : token0Price,
             token0Amount: token0In1Out ? tokenInBig : tokenOutBig,
             token1Amount: token0In1Out ? tokenOutBig : tokenInBig,
-            token0Price: new Prisma.Decimal(Number(token0Price / 10n ** 6n)),
-            token1Price: new Prisma.Decimal(Number(token1Price / 10n ** 6n)),
+            token0Price,
+            token1Price,
             token0In1Out,
             owner: sender,
             active: true,
@@ -63,6 +75,14 @@ export const handleCreateLimitOrder = async (
     console.table({
         orderId: newOrder.orderId,
         poolId: newOrder.poolId,
+
+        tokenInId: newOrder.tokenInId,
+        tokenOutId: newOrder.tokenOutId,
+        tokenInAmount: newOrder.tokenInAmount,
+        tokenOutAmount: newOrder.tokenOutAmount,
+        tokenInPrice: newOrder.tokenInPrice.toNumber(),
+        tokenOutPrice: newOrder.tokenOutPrice.toNumber(),
+
         token0Amount: newOrder.token0Amount,
         token1Amount: newOrder.token1Amount,
         token0Price: newOrder.token0Price.toNumber(),

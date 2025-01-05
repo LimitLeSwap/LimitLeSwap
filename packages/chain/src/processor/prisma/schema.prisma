@@ -73,6 +73,15 @@ model LimitOrder {
   orderId String @id
   poolId String
 
+  // for backward compatibility
+  tokenInId String
+  tokenOutId String
+  tokenInAmount BigInt
+  tokenOutAmount BigInt
+  tokenInPrice Decimal @db.Decimal(38, 18)
+  tokenOutPrice Decimal @db.Decimal(38, 18)
+
+  // maybe we can use this in the future
   token0Amount BigInt
   token1Amount BigInt
   token0Price Decimal @db.Decimal(38, 18)
@@ -88,6 +97,7 @@ model LimitOrder {
   @@index([active])
   @@index([owner])
   @@index([poolId])
+  @@index([tokenInId, tokenOutId])
   @@index([token0Price, token1Price])
   @@index([active, poolId])
   @@index([owner, active])

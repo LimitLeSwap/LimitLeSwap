@@ -65,6 +65,13 @@ CREATE TABLE "Swap" (
 CREATE TABLE "LimitOrder" (
     "orderId" TEXT NOT NULL,
     "poolId" TEXT NOT NULL,
+    "tokenInId" TEXT NOT NULL,
+    "tokenOutId" TEXT NOT NULL,
+    "tokenInAmount" BIGINT NOT NULL,
+    "tokenOutAmount" BIGINT NOT NULL,
+    "tokenInPrice" NUMERIC(38, 18) NOT NULL,
+    "tokenOutPrice" NUMERIC(38, 18) NOT NULL,
+
     "token0Amount" BIGINT NOT NULL,
     "token1Amount" BIGINT NOT NULL,
     "token0Price" NUMERIC(38, 18) NOT NULL,
@@ -81,6 +88,7 @@ CREATE TABLE "LimitOrder" (
 CREATE INDEX "LimitOrder_active_idx" ON "LimitOrder" ("active");
 CREATE INDEX "LimitOrder_owner_idx" ON "LimitOrder" ("owner");
 CREATE INDEX "LimitOrder_poolId_idx" ON "LimitOrder" ("poolId");
+CREATE INDEX "LimitOrder_tokenInId_tokenOutId_idx" ON "LimitOrder" ("tokenInId", "tokenOutId");
 CREATE INDEX "LimitOrder_token0Price_token1Price_idx" ON "LimitOrder" ("token0Price", "token1Price");
 CREATE INDEX "LimitOrder_active_poolId_idx" ON "LimitOrder" ("active", "poolId");
 CREATE INDEX "LimitOrder_owner_active_idx" ON "LimitOrder" ("owner", "active");
