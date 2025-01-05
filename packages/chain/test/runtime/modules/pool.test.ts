@@ -27,27 +27,75 @@ log.setLevel("ERROR");
 
 describe("pool", () => {
     it("should demonstrate how pool works", async () => {
-        const appChain = new TestingAppChain({
-            Runtime: Runtime.from({
-                modules: VanillaRuntimeModules.with({
-                    Balances: Balances,
-                    OrderBook: OrderBook,
-                    PoolModule: PoolModule,
-                }),
-            }),
-            Protocol: Protocol.from({
-                modules: VanillaProtocolModules.mandatoryModules({}),
-            }),
-            Sequencer: Sequencer.from({
-                modules: InMemorySequencerModules.with({}),
-            }),
+        // const appChain = new TestingAppChain({
+        //     Runtime: Runtime.from({
+        //         modules: VanillaRuntimeModules.with({
+        //             Balances: Balances,
+        //             OrderBook: OrderBook,
+        //             PoolModule: PoolModule,
+        //         }),
+        //     }),
+        //     Protocol: Protocol.from({
+        //         modules: VanillaProtocolModules.mandatoryModules({}),
+        //     }),
+        //     Sequencer: Sequencer.from({
+        //         modules: InMemorySequencerModules.with({}),
+        //     }),
 
-            modules: {
-                Signer: InMemorySigner,
-                TransactionSender: InMemoryTransactionSender,
-                QueryTransportModule: StateServiceQueryModule,
-                NetworkStateTransportModule: BlockStorageNetworkStateModule,
-            },
+        //     modules: {
+        //         Signer: InMemorySigner,
+        //         TransactionSender: InMemoryTransactionSender,
+        //         QueryTransportModule: StateServiceQueryModule,
+        //         NetworkStateTransportModule: BlockStorageNetworkStateModule,
+        //     },
+        // });
+
+        // appChain.configurePartial({
+        //     Runtime: {
+        //         Balances: {},
+        //         OrderBook: {},
+        //         PoolModule: {},
+        //     },
+        //     Protocol: {
+        //         AccountState: {},
+        //         BlockProver: {},
+        //         StateTransitionProver: {},
+        //         BlockHeight: {},
+        //         LastStateRoot: {},
+        //     },
+        //     Sequencer: {
+        //         Database: {},
+        //         BlockTrigger: {},
+        //         Mempool: {},
+        //         BlockProducerModule: {},
+        //         LocalTaskWorkerModule: {
+        //             StateTransitionReductionTask: {},
+        //             StateTransitionTask: {},
+        //             RuntimeProvingTask: {},
+        //             BlockBuildingTask: {},
+        //             BlockProvingTask: {},
+        //             BlockReductionTask: {},
+        //             CircuitCompilerTask: {},
+        //             WorkerRegistrationTask: {},
+        //         },
+        //         BaseLayer: {},
+        //         BatchProducerModule: {},
+        //         TaskQueue: {
+        //             simulatedDuration: 0,
+        //         },
+        //     },
+        //     Signer: {
+        //         signer: PrivateKey.random(),
+        //     },
+        //     TransactionSender: {},
+        //     QueryTransportModule: {},
+        //     NetworkStateTransportModule: {},
+        // });
+
+        const appChain = TestingAppChain.fromRuntime({
+            Balances,
+            OrderBook,
+            PoolModule,
         });
 
         appChain.configurePartial({
@@ -56,40 +104,6 @@ describe("pool", () => {
                 OrderBook: {},
                 PoolModule: {},
             },
-            Protocol: {
-                AccountState: {},
-                BlockProver: {},
-                StateTransitionProver: {},
-                BlockHeight: {},
-                LastStateRoot: {},
-            },
-            Sequencer: {
-                Database: {},
-                BlockTrigger: {},
-                Mempool: {},
-                BlockProducerModule: {},
-                LocalTaskWorkerModule: {
-                    StateTransitionReductionTask: {},
-                    StateTransitionTask: {},
-                    RuntimeProvingTask: {},
-                    BlockBuildingTask: {},
-                    BlockProvingTask: {},
-                    BlockReductionTask: {},
-                    CircuitCompilerTask: {},
-                    WorkerRegistrationTask: {},
-                },
-                BaseLayer: {},
-                BatchProducerModule: {},
-                TaskQueue: {
-                    simulatedDuration: 0,
-                },
-            },
-            Signer: {
-                signer: PrivateKey.random(),
-            },
-            TransactionSender: {},
-            QueryTransportModule: {},
-            NetworkStateTransportModule: {},
         });
 
         await appChain.start();
@@ -140,6 +154,7 @@ describe("pool", () => {
                 UInt64.from(200),
                 UInt64.from(200),
                 alice,
+                UInt64.from(200),
                 UInt64.from(200)
             );
         });
