@@ -7,13 +7,16 @@ CREATE TABLE "Block" (
 
 -- CreateTable Token
 CREATE TABLE "Token" (
-    "tokenId" TEXT NOT NULL,
+    "id" SERIAL,
+    "tokenId" TEXT NOT NULL UNIQUE,
     "decimals" INTEGER NOT NULL,
     "totalSupply" BIGINT NOT NULL,
     "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
     "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT "Token_pkey" PRIMARY KEY ("tokenId")
 );
+
+CREATE INDEX "Token_tokenId_idx" ON "Token" ("tokenId");
 
 INSERT INTO "Token" ("tokenId", "decimals", "totalSupply", "createdAt")
 VALUES ('0', 6, 0, NOW()) -- Todo: change decimals

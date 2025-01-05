@@ -25,11 +25,14 @@ model Block {
 }
 
 model Token {
-  tokenId String @id
+  id Int @id @default(autoincrement())
+  tokenId String @unique
   decimals Int
   totalSupply BigInt
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([tokenId])
 }
 
 model Balance {
