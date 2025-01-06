@@ -4,11 +4,12 @@ import { immer } from "zustand/middleware/immer";
 import { PendingTransaction, UnsignedTransaction } from "@proto-kit/sequencer";
 import { Balance, BalancesKey, TokenId } from "@proto-kit/library";
 import { PublicKey } from "o1js";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useChainStore } from "./chain";
 import { useWalletStore } from "./wallet";
 import { usePoolStore } from "./poolStore";
 import { DECIMALS } from "../constants";
+import isEqual from "lodash.isequal";
 
 export interface BalancesState {
   loading: boolean;
@@ -17,11 +18,7 @@ export interface BalancesState {
   };
   faucetTokenId: string;
   setFaucetTokenId: (tokenId: string) => void;
-  loadBalance: (
-    client: Client,
-    address: string,
-    tokenId: Token,
-  ) => Promise<void>;
+  setBalances: (balances: { [key: string]: string }) => void;
   faucet: (
     client: Client,
     address: string,
@@ -36,6 +33,17 @@ function isPendingTransaction(
     throw new Error("Transaction is not a PendingTransaction");
 }
 
+export interface GetAddressBalancesResponse {
+  data: {
+    balances: [
+      {
+        amount: number;
+        tokenId: string;
+      },
+    ];
+  };
+}
+
 export const useBalancesStore = create<
   BalancesState,
   [["zustand/immer", never]]
@@ -46,20 +54,11 @@ export const useBalancesStore = create<
     faucetTokenId: "0",
     setFaucetTokenId: (tokenId: string) => set({ faucetTokenId: tokenId }),
 
-    async loadBalance(client: Client, address: string, token: Token) {
+    setBalances: (balances) =>
       set((state) => {
-        state.loading = true;
-      });
+        state.balances = balances;
+      }),
 
-      const tokenId = TokenId.from(token.tokenId);
-      const key = BalancesKey.from(tokenId, PublicKey.fromBase58(address));
-      const balance = await client.query.runtime.Balances.balances.get(key);
-
-      set((state) => {
-        state.loading = false;
-        state.balances[token.name] = balance?.toString() ?? "0";
-      });
-    },
     async faucet(client: Client, address: string) {
       const balances = client.runtime.resolve("Balances");
       const sender = PublicKey.fromBase58(address);
@@ -84,17 +83,64 @@ export const useBalancesStore = create<
 );
 
 export const useObserveBalance = () => {
-  const client = useClientStore();
   const chain = useChainStore();
   const wallet = useWalletStore();
   const balances = useBalancesStore();
   const poolStore = usePoolStore();
 
-  useEffect(() => {
-    if (!client.client || !wallet.wallet) return;
+  const previousBalancesRef = useRef<{ [key: string]: string }>({});
 
-    for (const tokenId of poolStore.tokenList) {
-      balances.loadBalance(client.client, wallet.wallet, tokenId);
-    }
-  }, [client.client, chain.block?.height, wallet.wallet, poolStore.tokenList]);
+  useEffect(() => {
+    if (!wallet.wallet) return;
+
+    (async () => {
+      const graphql = process.env.NEXT_PUBLIC_PROTOKIT_PROCESSOR_GRAPHQL_URL;
+
+      if (graphql === undefined) {
+        throw new Error(
+          "Environment variable NEXT_PUBLIC_PROTOKIT_PROCESSOR_GRAPHQL_URL not set, can't execute graphql requests",
+        );
+      }
+
+      const balancesResponse = await fetch(graphql, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `query GetAddressBalances {
+  balances(
+    where: {address: {equals: "${wallet.wallet}"}}
+    take: ${poolStore.tokenList.length - 1}
+    distinct: tokenId
+    orderBy: {height: desc}
+  ) {
+    amount
+    tokenId
+  }
+}`,
+        }),
+      });
+
+      const { data } =
+        (await balancesResponse.json()) as GetAddressBalancesResponse;
+
+      if (data && data.balances) {
+        const newBalances: { [key: string]: string } = {};
+        for (const balance of data.balances) {
+          const token = poolStore.tokenList.find(
+            (token) => token.tokenId === balance.tokenId,
+          );
+          if (!token) continue;
+          newBalances[token?.name] = balance.amount.toString();
+        }
+
+        if (!isEqual(newBalances, previousBalancesRef.current)) {
+          console.log("Setting balances", newBalances);
+          balances.setBalances(newBalances);
+          previousBalancesRef.current = newBalances;
+        }
+      }
+    })();
+  }, [chain.block?.height, wallet.wallet, poolStore.tokenList]);
 };
