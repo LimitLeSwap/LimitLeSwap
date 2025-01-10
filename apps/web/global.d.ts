@@ -63,7 +63,7 @@ declare global {
     tokenIn: RouteToken;
     tokenOut: RouteToken;
     orders: {
-      orderId: number;
+      orderId: string;
       tokenInAmount: number;
       tokenOutAmount: number;
     }[];

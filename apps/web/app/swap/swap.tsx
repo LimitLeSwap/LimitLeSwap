@@ -106,7 +106,6 @@ export default function Swap() {
       sellAmount,
       poolStore,
       limitStore,
-      Number(chainStore.block?.height ?? 0),
     );
 
     console.log(route);

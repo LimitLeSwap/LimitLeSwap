@@ -3,11 +3,7 @@ import { calculateSwap } from "./swapFunctions";
 const MAX_HOP = 5;
 const MAX_LIMIT_ORDERS = 10;
 
-function buildGraph(
-  poolStore: PoolStoreState,
-  limitStore: LimitStoreState,
-  currentBlockHeight: number,
-) {
+function buildGraph(poolStore: PoolStoreState, limitStore: LimitStoreState) {
   const graph: Record<
     string,
     { token: RouteToken; simulateHop: (amountIn: number) => RouteStep[] }[]
@@ -22,23 +18,15 @@ function buildGraph(
   }
 
   for (const order of limitStore.limitOrders) {
-    if (order.isActive && Number(order.expiration) > currentBlockHeight) {
-      const tokenIn = poolStore.tokenList.find(
-        (t) => t.tokenId === order.tokenIn,
-      );
-      const tokenOut = poolStore.tokenList.find(
-        (t) => t.tokenId === order.tokenOut,
-      );
-      if (!tokenIn || !tokenOut) continue;
+    const tokenIn = poolStore.tokenList.find(
+      (t) => t.tokenId === order.tokenInId,
+    );
+    const tokenOut = poolStore.tokenList.find(
+      (t) => t.tokenId === order.tokenOutId,
+    );
+    if (!tokenIn || !tokenOut) continue;
 
-      addLimitOrderEdge(
-        graph,
-        tokenIn,
-        tokenOut,
-        limitStore,
-        currentBlockHeight,
-      );
-    }
+    addLimitOrderEdge(graph, tokenIn, tokenOut, limitStore);
   }
 
   return graph;
@@ -98,7 +86,6 @@ function addLimitOrderEdge(
   from: RouteToken,
   to: RouteToken,
   limitStore: LimitStoreState,
-  currentBlockHeight: number,
 ) {
   if (!graph[from.name]) graph[from.name] = [];
 
@@ -108,10 +95,7 @@ function addLimitOrderEdge(
       const relevantOrders = limitStore.limitOrders
         .filter((order) => {
           return (
-            order.isActive &&
-            Number(order.expiration) > currentBlockHeight &&
-            order.tokenIn === from.tokenId &&
-            order.tokenOut === to.tokenId
+            order.tokenInId === from.tokenId && order.tokenOutId === to.tokenId
           );
         })
         .map((order) => {
@@ -165,13 +149,12 @@ export function findBestRoute(
   initialAmount: number,
   poolStore: PoolStoreState,
   limitStore: LimitStoreState,
-  currentBlockHeight: number,
 ): CompleteRoute | null {
   console.log("tokenList", poolStore.tokenList);
   console.log("poolList", poolStore.poolList);
   console.log("limitOrders", limitStore.limitOrders);
 
-  const graph = buildGraph(poolStore, limitStore, currentBlockHeight);
+  const graph = buildGraph(poolStore, limitStore);
 
   // dp[h][tokenName] = {maxAmount: number, route: CompleteRoute}
   const dp: Record<
