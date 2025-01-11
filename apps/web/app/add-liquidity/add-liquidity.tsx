@@ -10,17 +10,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { calculateLpAddLiquidity, findTokenAndPoolByName } from "@/lib/common";
 import { DECIMALS } from "@/lib/constants";
 import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { tokens } from "@/lib/tokens";
-import { Balance, BalancesKey, TokenId } from "@proto-kit/library";
+import { Balance, TokenId } from "@proto-kit/library";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { ArrowDown, Droplets, Plus } from "lucide-react";
 import { PublicKey } from "o1js";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function AddLiq() {
   const walletStore = useWalletStore();
@@ -31,15 +32,13 @@ export default function AddLiq() {
 
   const wallet = walletStore.wallet;
 
-  const [pool, setPool] = useState<Pool | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [state, setState] = useState({
-    tokenAmountA: 0,
-    tokenAmountB: 0,
+    tokenAmountA: "",
+    tokenAmountB: "",
     tokenA: "MINA",
     tokenB: "USDT",
     lpRequested: 0,
-    emptyPool: false,
   });
 
   const calculateQuote = (
@@ -47,33 +46,35 @@ export default function AddLiq() {
     tokenBReserve: number,
     tokenAAmount: number,
   ) => {
-    return (tokenBReserve * tokenAAmount) / tokenAReserve;
+    // console.log(
+    //   tokenAReserve,
+    //   tokenBReserve,
+    //   tokenAAmount,
+    //   Math.floor(
+    //     (tokenBReserve * tokenAAmount * Number(DECIMALS)) / tokenAReserve,
+    //   ) / Number(DECIMALS),
+    // );
+    return (
+      Math.floor(
+        (tokenBReserve * tokenAAmount * Number(DECIMALS)) / tokenAReserve,
+      ) / Number(DECIMALS)
+    );
   };
 
+  const [tokenAObj, tokenBObj, pool] = useMemo(() => {
+    return findTokenAndPoolByName(state.tokenA, state.tokenB, poolStore);
+  }, [state.tokenA, state.tokenB, poolStore.poolList, poolStore.tokenList]);
+
   useEffect(() => {
-    let tokenA = poolStore.tokenList.find(
-      (token) => token.name === state.tokenA,
-    );
-    let tokenB = poolStore.tokenList.find(
-      (token) => token.name === state.tokenB,
-    );
-    const pool = poolStore.poolList.find((pool) => {
-      return (
-        (pool.token0.name === tokenA?.name &&
-          pool.token1.name === tokenB?.name) ||
-        (pool.token0.name === tokenB?.name && pool.token1.name === tokenA?.name)
-      );
-    });
-    setPool(pool ?? null);
     if (pool) {
       const pos = poolStore.positionList.find((pos) => {
         return pos.poolId.toString() === pool.poolId.toString();
       });
 
-      console.log(pool, pos);
+      // console.log(pool, pos);
       setPosition(pos ?? null);
     }
-  }, [state.tokenA, state.tokenB, hasMounted, poolStore.poolList]);
+  }, [pool, hasMounted, poolStore.poolList]);
 
   const handleSubmit = async () => {
     let tokenAid = poolStore.tokenList.find(
@@ -95,16 +96,12 @@ export default function AddLiq() {
       const tokenA = TokenId.from(tokenAid?.tokenId);
       const tokenB = TokenId.from(tokenBid?.tokenId);
       const tokenAmountA = Balance.from(
-        BigInt(state.tokenAmountA * Number(DECIMALS)),
+        BigInt(Number(state.tokenAmountA) * Number(DECIMALS)),
       );
       const tokenAmountB = Balance.from(
-        BigInt(state.tokenAmountB * Number(DECIMALS)),
+        BigInt(Number(state.tokenAmountB) * Number(DECIMALS)),
       );
-      const lpAmount = Balance.from(
-        BigInt(Math.floor(state.lpRequested * Number(DECIMALS))),
-      );
-
-      console.log("Adding liquidity");
+      const lpAmount = Balance.from(BigInt(Math.floor(state.lpRequested)));
 
       console.log(state.tokenA, tokenAmountA.toString());
       console.log(state.tokenB, tokenAmountB.toString());
@@ -144,6 +141,74 @@ export default function AddLiq() {
     }
   };
 
+  const handleTokenAChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      const tokenAmountA = Number(e.target.value);
+      const tokenAReserve =
+        pool?.token0.name === state.tokenA
+          ? Number(pool?.token0Amount)
+          : Number(pool?.token1Amount);
+      const tokenBReserve =
+        pool?.token0.name === state.tokenA
+          ? Number(pool?.token1Amount)
+          : Number(pool?.token0Amount);
+
+      const tokenAmountB = calculateQuote(
+        tokenAReserve,
+        tokenBReserve,
+        tokenAmountA,
+      );
+
+      const lpRequested = calculateLpAddLiquidity(
+        tokenAmountA * Number(DECIMALS),
+        tokenAmountB * Number(DECIMALS),
+        tokenAReserve,
+        tokenBReserve,
+        Number(pool?.lpTokenSupply),
+      );
+
+      setState({
+        ...state,
+        tokenAmountA: e.target.value,
+        tokenAmountB: tokenAmountB.toString(),
+        lpRequested: lpRequested,
+      });
+    }
+  };
+
+  const handleTokenBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const tokenAmountB = Number(e.target.value);
+    const tokenAReserve =
+      pool?.token0.name === state.tokenB
+        ? Number(pool?.token0Amount)
+        : Number(pool?.token1Amount);
+    const tokenBReserve =
+      pool?.token0.name === state.tokenB
+        ? Number(pool?.token1Amount)
+        : Number(pool?.token0Amount);
+
+    const tokenAmountA = calculateQuote(
+      tokenAReserve,
+      tokenBReserve,
+      tokenAmountB,
+    );
+    const lpRequested = calculateLpAddLiquidity(
+      tokenAmountA * Number(DECIMALS),
+      tokenAmountB * Number(DECIMALS),
+      tokenAReserve,
+      tokenBReserve,
+      Number(pool?.lpTokenSupply),
+    );
+
+    setState({
+      ...state,
+      tokenAmountA: tokenAmountA.toString(),
+      tokenAmountB: e.target.value,
+      lpRequested: lpRequested,
+    });
+  };
+
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
       <div className="flex w-full max-w-[470px] sm:w-[470px]">
@@ -156,44 +221,7 @@ export default function AddLiq() {
           <div className="flex flex-row items-center rounded-2xl border p-4">
             <CustomInput
               value={state.tokenAmountA}
-              onChange={(e) => {
-                const tokenAmountA = Number(e.target.value);
-                const tokenAReserve =
-                  pool?.token0.name === state.tokenA
-                    ? Number(pool?.token0Amount)
-                    : Number(pool?.token1Amount);
-                const tokenBReserve =
-                  pool?.token0.name === state.tokenA
-                    ? Number(pool?.token1Amount)
-                    : Number(pool?.token0Amount);
-                if (
-                  tokenAReserve &&
-                  tokenBReserve &&
-                  tokenAReserve > 0 &&
-                  tokenBReserve > 0
-                ) {
-                  const tokenAmountB = calculateQuote(
-                    tokenAReserve,
-                    tokenBReserve,
-                    tokenAmountA,
-                  );
-
-                  const lpRequested = Math.sqrt(tokenAmountA * tokenAmountB);
-
-                  setState({
-                    ...state,
-                    tokenAmountA: tokenAmountA,
-                    tokenAmountB: tokenAmountB,
-                    lpRequested: lpRequested,
-                  });
-                } else {
-                  setState({
-                    ...state,
-                    tokenAmountA: tokenAmountA,
-                    emptyPool: true,
-                  });
-                }
-              }}
+              onChange={handleTokenAChange}
               placeholder={"0"}
               pattern="^[0-9]*[.,]?[0-9]*$"
               minLength={1}
@@ -208,7 +236,6 @@ export default function AddLiq() {
               }}
             >
               <SelectTrigger className=" w-60 rounded-2xl">
-                {/* <img src={`/${state.tokenA}.png`} className=" h-4 w-4" /> */}
                 <SelectValue placeholder="Select a token to swap" />
               </SelectTrigger>
 
@@ -238,43 +265,7 @@ export default function AddLiq() {
           <div className=" flex flex-row items-center rounded-2xl border p-4">
             <CustomInput
               value={state.tokenAmountB}
-              onChange={(e) => {
-                const tokenAmountB = Number(e.target.value);
-                const tokenAReserve =
-                  pool?.token0.name === state.tokenB
-                    ? Number(pool?.token0Amount)
-                    : Number(pool?.token1Amount);
-                const tokenBReserve =
-                  pool?.token0.name === state.tokenB
-                    ? Number(pool?.token1Amount)
-                    : Number(pool?.token0Amount);
-                if (
-                  tokenAReserve &&
-                  tokenBReserve &&
-                  tokenAReserve > 0 &&
-                  tokenBReserve > 0
-                ) {
-                  const tokenAmountA = calculateQuote(
-                    tokenAReserve,
-                    tokenBReserve,
-                    tokenAmountB,
-                  );
-                  const lpRequested = Math.sqrt(tokenAmountA * tokenAmountB);
-
-                  setState({
-                    ...state,
-                    tokenAmountA: tokenAmountA,
-                    tokenAmountB: tokenAmountB,
-                    lpRequested: lpRequested,
-                  });
-                } else {
-                  setState({
-                    ...state,
-                    tokenAmountB: tokenAmountB,
-                    emptyPool: true,
-                  });
-                }
-              }}
+              onChange={handleTokenBChange}
               placeholder={"0"}
               pattern="^[0-9]*[.,]?[0-9]*$"
               minLength={1}

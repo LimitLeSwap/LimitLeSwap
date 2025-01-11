@@ -19,10 +19,21 @@ export function findTokenAndPoolByName(
       );
     }) ?? null;
 
-  // console.log("sellToken", sellToken);
-  // console.log("buyToken", buyToken);
-  // console.log("pool", pool);
   return [sellToken, buyToken, pool];
+}
+
+export function calculateLpAddLiquidity(
+  tokenAmountA: number,
+  tokenAmountB: number,
+  tokenReserveA: number,
+  tokenReserveB: number,
+  lpTotalSupply: number,
+): number {
+  const lpAmount = Math.min(
+    (tokenAmountA * lpTotalSupply) / tokenReserveA,
+    (tokenAmountB * lpTotalSupply) / tokenReserveB,
+  );
+  return lpAmount;
 }
 
 export function findTokenByTokenId(
