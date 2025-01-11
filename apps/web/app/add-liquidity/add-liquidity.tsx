@@ -417,7 +417,7 @@ export default function AddLiq() {
             size="lg"
             type="submit"
             className="mt-6 w-full rounded-2xl"
-            disabled={!wallet || !pool}
+            disabled={!pool}
             onClick={() => {
               wallet ?? walletStore.connect();
               wallet && handleSubmit();

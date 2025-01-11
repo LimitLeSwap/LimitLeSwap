@@ -158,6 +158,13 @@ export default function RemoveLiq() {
                     maxLength={40}
                     inputMode="decimal"
                     className=" px-2 text-xl"
+                    onChange={(e) => {
+                      const newValue = parseFloat(e.target.value) || 0;
+                      setState({
+                        ...state,
+                        removeAmount: Math.floor(newValue * Number(DECIMALS)),
+                      });
+                    }}
                   />
                 </Label>
               </div>
@@ -279,7 +286,7 @@ export default function RemoveLiq() {
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
-            disabled={!wallet || !position}
+            disabled={!position}
             onClick={() => {
               wallet ?? walletStore.connect();
               wallet && handleSubmit();

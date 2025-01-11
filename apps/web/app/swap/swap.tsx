@@ -406,7 +406,11 @@ export default function Swap() {
               wallet && route && handleSubmit();
             }}
           >
-            {wallet ? "Swap" : "Connect wallet"}
+            {wallet
+              ? waitApproval
+                ? "Waiting Approval"
+                : "Swap"
+              : "Connect wallet"}
           </Button>
         </Card>
         <PriceChart

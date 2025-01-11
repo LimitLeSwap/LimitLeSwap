@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useWalletStore } from "@/lib/stores/wallet";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useClientStore } from "@/lib/stores/client";
@@ -21,118 +21,161 @@ import { DECIMALS } from "@/lib/constants";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { tokens } from "@/lib/tokens";
+import { findTokenAndPoolByName } from "@/lib/common";
+import { useHasMounted } from "@/lib/customHooks";
 
 export default function CreatePool() {
   const walletStore = useWalletStore();
   const wallet = walletStore.wallet;
+  const hasMounted = useHasMounted();
+  const [waitApproval, setWaitApproval] = useState(false);
   const [state, setState] = useState({
-    tokenAmountA: 0,
-    tokenAmountB: 0,
+    tokenAmountA: "",
+    tokenAmountB: "",
     tokenA: "MINA",
     tokenB: "USDT",
     feeTier: 2,
+    poolExist: false,
   });
   const { toast } = useToast();
   const poolStore = usePoolStore();
   const client = useClientStore();
 
+  const [tokenAObj, tokenBObj, pool] = useMemo(() => {
+    return findTokenAndPoolByName(state.tokenA, state.tokenB, poolStore);
+  }, [state.tokenA, state.tokenB, poolStore.poolList, poolStore.tokenList]);
+
+  useEffect(() => {
+    if (pool) {
+      console.log("Pool exists", pool);
+      setState((prev) => ({
+        ...prev,
+        poolExist: true,
+      }));
+    } else {
+      setState((prev) => ({
+        ...prev,
+        poolExist: false,
+      }));
+    }
+  }, [pool, hasMounted, poolStore.poolList]);
+
   const handleSubmit = async () => {
     console.log(state);
+    setWaitApproval(true);
 
-    let tokenA = poolStore.tokenList.find(
-      (token) => token.name === state.tokenA,
-    );
-    let tokenB = poolStore.tokenList.find(
-      (token) => token.name === state.tokenB,
-    );
-
-    if (tokenA?.name === tokenB?.name) {
+    if (tokenAObj?.name === tokenBObj?.name) {
       toast({
         title: "Invalid token selection",
         description: "Please select different tokens to create pool",
       });
+      setWaitApproval(false);
       return;
     }
-
-    const pool = poolStore.poolList.find((pool) => {
-      (pool.token0.name === tokenA?.name &&
-        pool.token1.name === tokenB?.name) ||
-        (pool.token0.name === tokenB?.name &&
-          pool.token1.name === tokenA?.name);
-    });
 
     if (pool) {
       toast({
         title: "Pool already exists",
         description: "Please select a valid pool to create",
       });
+      setWaitApproval(false);
       return;
     }
 
-    const tokenAmountA = state.tokenAmountA;
-    const tokenAmountB = state.tokenAmountB;
+    const tokenAmountA = Number(state.tokenAmountA);
+    const tokenAmountB = Number(state.tokenAmountB);
 
     if (tokenAmountA <= 0 || tokenAmountB <= 0) {
       toast({
         title: "Invalid token amount",
         description: "Please enter a valid token amount",
       });
+      setWaitApproval(false);
       return;
     }
 
     console.log("Creating pool");
 
-    if (client.client && wallet && tokenA && tokenB) {
-      const TokenIdA = TokenId.from(tokenA.tokenId);
-      const TokenIdB = TokenId.from(tokenB.tokenId);
-      const TokenAmountA = Balance.from(
-        BigInt(tokenAmountA * Number(DECIMALS)),
-      );
-      const TokenAmountB = Balance.from(
-        BigInt(tokenAmountB * Number(DECIMALS)),
-      );
-      const lpRequested = Balance.from(
-        BigInt(
-          Math.floor(
-            Math.sqrt(tokenAmountA * tokenAmountB) * Number(DECIMALS) - 1000,
+    try {
+      if (client.client && wallet && tokenAObj && tokenBObj) {
+        const TokenIdA = TokenId.from(tokenAObj.tokenId);
+        const TokenIdB = TokenId.from(tokenBObj.tokenId);
+        const TokenAmountA = Balance.from(
+          BigInt(tokenAmountA * Number(DECIMALS)),
+        );
+        const TokenAmountB = Balance.from(
+          BigInt(tokenAmountB * Number(DECIMALS)),
+        );
+        const lpRequested = Balance.from(
+          BigInt(
+            Math.floor(
+              Math.sqrt(tokenAmountA * tokenAmountB) * Number(DECIMALS) - 1000,
+            ),
           ),
-        ),
-      );
+        );
 
-      console.log(lpRequested.mul(lpRequested).toString());
-      console.log(TokenAmountA.mul(TokenAmountB).toString());
+        console.log(lpRequested.mul(lpRequested).toString());
+        console.log(TokenAmountA.mul(TokenAmountB).toString());
 
-      const poolModule = client.client.runtime.resolve("PoolModule");
+        const poolModule = client.client.runtime.resolve("PoolModule");
 
-      const tx = await client.client.transaction(
-        PublicKey.fromBase58(wallet),
-        async () => {
-          await poolModule.createPool(
-            TokenIdA,
-            TokenIdB,
-            TokenAmountA,
-            TokenAmountB,
-            PublicKey.fromBase58(wallet),
-            UInt64.from(state.feeTier),
-            lpRequested,
-          );
-        },
-      );
+        const tx = await client.client.transaction(
+          PublicKey.fromBase58(wallet),
+          async () => {
+            await poolModule.createPool(
+              TokenIdA,
+              TokenIdB,
+              TokenAmountA,
+              TokenAmountB,
+              PublicKey.fromBase58(wallet),
+              UInt64.from(state.feeTier),
+              lpRequested,
+            );
+          },
+        );
 
-      await tx.sign();
-      await tx.send();
+        await tx.sign();
+        await tx.send();
 
-      if (tx.transaction instanceof PendingTransaction)
-        walletStore.addPendingTransaction(tx.transaction);
-      else {
-        toast({
-          title: "Transaction failed",
-          description: "Please try again",
-        });
+        if (tx.transaction instanceof PendingTransaction)
+          walletStore.addPendingTransaction(tx.transaction);
+        else {
+          toast({
+            title: "Transaction failed",
+            description: "Please try again",
+          });
+        }
       }
+    } catch (e) {
+      toast({
+        title: "Transaction failed",
+        description: "Please try again",
+      });
+      console.error(e);
+    }
+
+    setWaitApproval(false);
+  };
+
+  const handleTokenAChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setState((prev) => ({
+        ...prev,
+        tokenAmountA: value,
+      }));
     }
   };
 
+  const handleTokenBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setState((prev) => ({
+        ...prev,
+        tokenAmountB: value,
+      }));
+    }
+  };
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
       <div className="flex w-full max-w-[470px] sm:w-[470px]">
@@ -145,15 +188,13 @@ export default function CreatePool() {
           <div className="flex flex-row items-center rounded-2xl border p-4">
             <CustomInput
               value={state.tokenAmountA}
-              onChange={(e) => {
-                setState({ ...state, tokenAmountA: Number(e.target.value) });
-              }}
+              onChange={handleTokenAChange}
               placeholder={"0"}
               pattern="^[0-9]*[.,]?[0-9]*$"
               minLength={1}
               maxLength={40}
               inputMode="decimal"
-              className="py2"
+              className="py-2"
             />
 
             <Select
@@ -192,9 +233,7 @@ export default function CreatePool() {
           <div className="flex flex-row items-center rounded-2xl border p-4">
             <CustomInput
               value={state.tokenAmountB}
-              onChange={(e) => {
-                setState({ ...state, tokenAmountB: Number(e.target.value) });
-              }}
+              onChange={handleTokenBChange}
               placeholder={"0"}
               pattern="^[0-9]*[.,]?[0-9]*$"
               minLength={1}
@@ -234,30 +273,6 @@ export default function CreatePool() {
             className="mt-6 w-full rounded-2xl"
           >
             <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-gray-700">
-              {/* <TabsTrigger
-                className="  rounded-2xl data-[state=active]:bg-background"
-                value="0"
-              >
-                0.01%
-              </TabsTrigger>
-              <TabsTrigger
-                className="  rounded-2xl data-[state=active]:bg-background"
-                value="1"
-              >
-                0.05%
-              </TabsTrigger>
-              <TabsTrigger
-                className="  rounded-2xl data-[state=active]:bg-background"
-                value="2"
-              >
-                0.3%
-              </TabsTrigger>
-              <TabsTrigger
-                className="  rounded-2xl data-[state=active]:bg-background"
-                value="3"
-              >
-                1%
-              </TabsTrigger> */}
               {[0.01, 0.05, 0.3, 1].map((fee, index) => (
                 <TabsTrigger
                   key={index}
@@ -274,12 +289,18 @@ export default function CreatePool() {
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
+            disabled={waitApproval || state.poolExist}
+            loading={waitApproval}
             onClick={() => {
               wallet ?? walletStore.connect();
               wallet && handleSubmit();
             }}
           >
-            {wallet ? "Create Pool" : "Connect wallet"}
+            {wallet
+              ? waitApproval
+                ? "Waiting Approval"
+                : "Create Pool"
+              : "Connect wallet"}
           </Button>
         </Card>
       </div>
