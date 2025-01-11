@@ -297,9 +297,11 @@ export default function CreatePool() {
             }}
           >
             {wallet
-              ? waitApproval
-                ? "Waiting Approval"
-                : "Create Pool"
+              ? state.poolExist
+                ? "Pool exists"
+                : waitApproval
+                  ? "Waiting Approval"
+                  : "Create Pool"
               : "Connect wallet"}
           </Button>
         </Card>

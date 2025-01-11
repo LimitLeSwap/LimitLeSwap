@@ -103,9 +103,17 @@ export default function Positions() {
                             {position.token1.name} Position
                           </DialogTitle>
                           <DialogDescription>
-                            As you provide liquidity, you receive a share of the
-                            0.3% fee cut from all swap transactions made on the
-                            pool according to your pool share.
+                            As you provide liquidity, you receive a share of the{" "}
+                            %
+                            {Number(
+                              poolStore.poolList.find(
+                                (pool) =>
+                                  pool.token0.name === position.token0.name &&
+                                  pool.token1.name === position.token1.name,
+                              )?.fee,
+                            ) / 100}{" "}
+                            fee cut from all swap transactions made on the pool
+                            according to your pool share.
                           </DialogDescription>
                         </DialogHeader>
 

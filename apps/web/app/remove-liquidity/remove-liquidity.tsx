@@ -33,6 +33,7 @@ export default function RemoveLiq() {
 
   const { toast } = useToast();
 
+  const [waitApproval, setWaitApproval] = useState(false);
   const [position, setPosition] = useState<Position | null>(null);
   const [state, setState] = useState({
     selectedPosition: "0",
@@ -50,70 +51,68 @@ export default function RemoveLiq() {
   ]);
 
   const handleSubmit = async () => {
-    console.log(state);
+    if (state.removeAmount === 0) return;
 
+    setWaitApproval(true);
     if (!position) {
       toast({
         title: "Error",
         description: "Please select a position",
       });
+      setWaitApproval(false);
       return;
     }
-    if (client.client && wallet) {
-      const poolModule = client.client.runtime.resolve("PoolModule");
-      const removeAmount0 = Math.floor(
-        (Number(position.token0Amount) * state.removeAmount) /
-          Number(position.lpTokenAmount),
-      );
-      const removeAmount1 = Math.floor(
-        (Number(position.token1Amount) * state.removeAmount) /
-          Number(position.lpTokenAmount),
-      );
+    try {
+      if (client.client && wallet) {
+        const poolModule = client.client.runtime.resolve("PoolModule");
+        const removeAmount0 = Math.floor(
+          (Number(position.token0Amount) * state.removeAmount) /
+            Number(position.lpTokenAmount),
+        );
+        const removeAmount1 = Math.floor(
+          (Number(position.token1Amount) * state.removeAmount) /
+            Number(position.lpTokenAmount),
+        );
 
-      console.log(poolStore.positionList);
+        const tx = await client.client.transaction(
+          PublicKey.fromBase58(wallet),
+          async () => {
+            await poolModule.removeLiquidity(
+              TokenId.from(position.token0.tokenId),
+              TokenId.from(position.token1.tokenId),
+              Balance.from(removeAmount0),
+              Balance.from(removeAmount1),
+              Balance.from(state.removeAmount),
+            );
+          },
+        );
 
-      console.log(
-        "Remove token0",
-        position.token0.name,
-        position.token0.tokenId,
-        Balance.from(removeAmount0).toString(),
-      );
-      console.log(
-        "Remove token1",
-        position.token1.name,
-        position.token1.tokenId,
-        Balance.from(removeAmount1).toString(),
-      );
-      const tx = await client.client.transaction(
-        PublicKey.fromBase58(wallet),
-        async () => {
-          await poolModule.removeLiquidity(
-            TokenId.from(position.token0.tokenId),
-            TokenId.from(position.token1.tokenId),
-            Balance.from(removeAmount0),
-            Balance.from(removeAmount1),
-            Balance.from(state.removeAmount),
-          );
-        },
-      );
+        console.log("Remove", removeAmount0, removeAmount1, state.removeAmount);
+        await tx.sign();
+        await tx.send();
 
-      console.log("Remove", removeAmount0, removeAmount1, state.removeAmount);
-      await tx.sign();
-      await tx.send();
+        if (tx.transaction instanceof PendingTransaction)
+          walletStore.addPendingTransaction(tx.transaction);
+        else {
+          toast({
+            title: "Transaction failed",
+            description: "Please try again",
+          });
+        }
 
-      if (tx.transaction instanceof PendingTransaction)
-        walletStore.addPendingTransaction(tx.transaction);
-      else {
-        toast({
-          title: "Transaction failed",
-          description: "Please try again",
+        setState({
+          ...state,
+          removeAmount: 0,
         });
+        setWaitApproval(false);
       }
-
-      setState({
-        ...state,
-        removeAmount: 0,
+    } catch (e) {
+      toast({
+        title: "Transaction failed",
+        description: "Please try again",
       });
+      console.error(e);
+      setWaitApproval(false);
     }
   };
 
@@ -227,6 +226,7 @@ export default function RemoveLiq() {
                 });
               }}
               disabled={poolStore.positionList.length === 0 || !position}
+              className="cursor-pointer"
             />
           </div>
 
@@ -286,7 +286,8 @@ export default function RemoveLiq() {
             size={"lg"}
             type="submit"
             className="mt-6 w-full rounded-2xl"
-            disabled={!position}
+            disabled={!position || waitApproval}
+            loading={waitApproval}
             onClick={() => {
               wallet ?? walletStore.connect();
               wallet && handleSubmit();
@@ -294,7 +295,9 @@ export default function RemoveLiq() {
           >
             {wallet
               ? poolStore.positionList.length > 0
-                ? "Remove Liquidity"
+                ? waitApproval
+                  ? "Waiting Approval"
+                  : "Remove Liquidity"
                 : "No Positions Found"
               : "Connect wallet"}
           </Button>
