@@ -168,7 +168,7 @@ export default function CreatePool() {
 
               <SelectContent className=" items-center  rounded-2xl text-center">
                 {tokens.map((token) => (
-                  <SelectItem value={token.name}>
+                  <SelectItem value={token.name} key={token.name}>
                     <div className=" flex w-full flex-row gap-4">
                       <img src={token.icon} className=" h-4 w-4" />
                       {token.name}
@@ -215,7 +215,7 @@ export default function CreatePool() {
 
               <SelectContent className=" items-center  rounded-2xl text-center">
                 {tokens.map((token) => (
-                  <SelectItem value={token.name}>
+                  <SelectItem value={token.name} key={token.name}>
                     <div className=" flex w-full flex-row gap-4">
                       <img src={token.icon} className=" h-4 w-4" />
                       {token.name}
@@ -234,7 +234,7 @@ export default function CreatePool() {
             className="mt-6 w-full rounded-2xl"
           >
             <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-gray-700">
-              <TabsTrigger
+              {/* <TabsTrigger
                 className="  rounded-2xl data-[state=active]:bg-background"
                 value="0"
               >
@@ -257,7 +257,16 @@ export default function CreatePool() {
                 value="3"
               >
                 1%
-              </TabsTrigger>
+              </TabsTrigger> */}
+              {[0.01, 0.05, 0.3, 1].map((fee, index) => (
+                <TabsTrigger
+                  key={index}
+                  className="  rounded-2xl data-[state=active]:bg-background"
+                  value={index.toString()}
+                >
+                  {fee}%
+                </TabsTrigger>
+              ))}
             </TabsList>
           </Tabs>
 

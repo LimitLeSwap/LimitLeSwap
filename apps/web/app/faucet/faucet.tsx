@@ -103,7 +103,7 @@ export default function Faucet() {
 
               <SelectContent className=" items-center  rounded-2xl text-center">
                 {tokens.map((token) => (
-                  <SelectItem value={token.name}>
+                  <SelectItem value={token.name} key={token.name}>
                     <div className=" flex w-full flex-row gap-4">
                       <img src={token.icon} className=" h-4 w-4" />
                       {token.name}
