@@ -15,6 +15,7 @@ import { useHasMounted } from "@/lib/customHooks";
 import { useClientStore } from "@/lib/stores/client";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useWalletStore } from "@/lib/stores/wallet";
+import { tokens } from "@/lib/tokens";
 import { Balance, BalancesKey, TokenId } from "@proto-kit/library";
 import { PendingTransaction } from "@proto-kit/sequencer";
 import { ArrowDown, Droplets, Plus } from "lucide-react";
@@ -117,16 +118,6 @@ export default function AddLiq() {
       );
       console.log(lpAmount.toString());
 
-      const key = BalancesKey.from(
-        tokenA,
-        PublicKey.fromBase58(
-          "B62qpgF6PwfAHdH3DvkB9escDqvjXRqyDFoqTcdsWBCAaVppZ7dBsk1",
-        ),
-      );
-      const reserveA =
-        await client.client.query.runtime.Balances.balances.get(key);
-      console.log("reserve", reserveA?.toString());
-
       const tx = await client.client.transaction(
         PublicKey.fromBase58(wallet),
         async () => {
@@ -153,69 +144,6 @@ export default function AddLiq() {
     }
   };
 
-  // const handleEmptyPool = async () => {
-  //   let tokenA = poolStore.tokenList.find(
-  //     (token) => token.name === state.tokenA,
-  //   );
-  //   let tokenB = poolStore.tokenList.find(
-  //     (token) => token.name === state.tokenB,
-  //   );
-  //   if (state.tokenAmountA <= 0 || state.tokenAmountB <= 0) {
-  //     toast({
-  //       title: "Invalid token amount",
-  //       description: "Please enter a valid token amount",
-  //     });
-  //     return;
-  //   }
-  //   if (client.client && wallet && tokenA && tokenB) {
-  //     const TokenIdA = TokenId.from(tokenA.tokenId);
-  //     const TokenIdB = TokenId.from(tokenB.tokenId);
-  //     const TokenAmountA = Balance.from(
-  //       BigInt(state.tokenAmountA * Number(DECIMALS)),
-  //     );
-  //     const TokenAmountB = Balance.from(
-  //       BigInt(state.tokenAmountB * Number(DECIMALS)),
-  //     );
-  //     const lpRequested = Balance.from(
-  //       BigInt(
-  //         Math.floor(
-  //           Math.sqrt(state.tokenAmountA * state.tokenAmountB) *
-  //             Number(DECIMALS),
-  //         ),
-  //       ),
-  //     );
-
-  //     console.log(lpRequested.mul(lpRequested).toString());
-  //     console.log(TokenAmountA.mul(TokenAmountB).toString());
-
-  //     const poolModule = client.client.runtime.resolve("PoolModule");
-
-  //     const tx = await client.client.transaction(
-  //       PublicKey.fromBase58(wallet),
-  //       async () => {
-  //         await poolModule.addLiquidityToEmptyPool(
-  //           TokenIdA,
-  //           TokenIdB,
-  //           TokenAmountA,
-  //           TokenAmountB,
-  //           PublicKey.fromBase58(wallet),
-  //           lpRequested,
-  //         );
-  //       },
-  //     );
-
-  //     await tx.sign();
-  //     await tx.send();
-  //     if (tx.transaction instanceof PendingTransaction)
-  //       walletStore.addPendingTransaction(tx.transaction);
-  //     else {
-  //       toast({
-  //         title: "Transaction failed",
-  //         description: "Please try again",
-  //       });
-  //     }
-  //   }
-  // };
   return (
     <div className="flex h-full w-full items-start justify-center p-2 sm:p-4 md:p-8 xl:pt-16">
       <div className="flex w-full max-w-[470px] sm:w-[470px]">
@@ -285,30 +213,14 @@ export default function AddLiq() {
               </SelectTrigger>
 
               <SelectContent className=" items-center  rounded-2xl text-center">
-                <SelectItem value="MINA">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/MINA.png`} className=" h-4 w-4" />
-                    MINA
-                  </div>
-                </SelectItem>
-                <SelectItem value="USDT">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/USDT.png`} className=" h-4 w-4" />
-                    USDT
-                  </div>
-                </SelectItem>
-                <SelectItem value="ETH">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/ETH.png`} className=" h-4 w-4" />
-                    ETH
-                  </div>
-                </SelectItem>
-                <SelectItem value="BTC">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/BTC.png`} className=" h-4 w-4" />
-                    BTC
-                  </div>
-                </SelectItem>
+                {tokens.map((token) => (
+                  <SelectItem value={token.name}>
+                    <div className=" flex w-full flex-row gap-4">
+                      <img src={token.icon} className=" h-4 w-4" />
+                      {token.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -377,35 +289,18 @@ export default function AddLiq() {
               }}
             >
               <SelectTrigger className=" w-60 rounded-2xl">
-                {/* <img src={`/${state.tokenB}.png`} className=" h-4 w-4" /> */}
                 <SelectValue placeholder="Select a token to swap" />
               </SelectTrigger>
 
               <SelectContent className=" items-center  rounded-2xl text-center">
-                <SelectItem value="MINA">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/MINA.png`} className=" h-4 w-4" />
-                    MINA
-                  </div>
-                </SelectItem>
-                <SelectItem value="USDT">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/USDT.png`} className=" h-4 w-4" />
-                    USDT
-                  </div>
-                </SelectItem>
-                <SelectItem value="ETH">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/ETH.png`} className=" h-4 w-4" />
-                    ETH
-                  </div>
-                </SelectItem>
-                <SelectItem value="BTC">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/BTC.png`} className=" h-4 w-4" />
-                    BTC
-                  </div>
-                </SelectItem>
+                {tokens.map((token) => (
+                  <SelectItem value={token.name}>
+                    <div className=" flex w-full flex-row gap-4">
+                      <img src={token.icon} className=" h-4 w-4" />
+                      {token.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

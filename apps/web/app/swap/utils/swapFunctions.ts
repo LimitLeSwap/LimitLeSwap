@@ -1,6 +1,4 @@
-import { LimitState, useLimitStore } from "@/lib/stores/limitStore";
-import { ChainState, useChainStore } from "@/lib/stores/chain";
-import { PoolState } from "@/lib/stores/poolStore";
+import { LimitState } from "@/lib/stores/limitStore";
 
 export const calculateWithLimitOrders = (
   buyToken: Token,
@@ -10,15 +8,12 @@ export const calculateWithLimitOrders = (
   poolBuyTokenReserve: number,
   poolSellTokenReserve: number,
   limitStore: LimitState,
-  chainStore: ChainState,
 ) => {
   const limitOrders = limitStore.limitOrders
     .filter((order) => {
       return (
-        order.isActive &&
-        Number(order.expiration) > Number(chainStore.block?.height ?? 0) &&
-        order.tokenIn === buyToken?.tokenId &&
-        order.tokenOut === sellToken?.tokenId &&
+        order.tokenInId === buyToken?.tokenId &&
+        order.tokenOutId === sellToken?.tokenId &&
         amountOut / sellAmount <=
           Number(order.tokenInAmount) / Number(order.tokenOutAmount)
       );
@@ -29,8 +24,8 @@ export const calculateWithLimitOrders = (
         amountIn: Number(order.tokenInAmount),
         amountOut: Number(order.tokenOutAmount),
         orderId: order.orderId,
-        tokenIn: order.tokenIn,
-        tokenOut: order.tokenOut,
+        tokenIn: order.tokenInId,
+        tokenOut: order.tokenOutId,
       };
     })
     .sort((a, b) => -(a.price - b.price));

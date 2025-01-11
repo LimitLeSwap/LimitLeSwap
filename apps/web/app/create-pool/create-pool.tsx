@@ -20,6 +20,7 @@ import { PublicKey } from "o1js";
 import { DECIMALS } from "@/lib/constants";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PendingTransaction } from "@proto-kit/sequencer";
+import { tokens } from "@/lib/tokens";
 
 export default function CreatePool() {
   const walletStore = useWalletStore();
@@ -162,35 +163,18 @@ export default function CreatePool() {
               }}
             >
               <SelectTrigger className=" w-60 rounded-2xl">
-                {/* <img src={`/${state.tokenA}.png`} className=" h-4 w-4" /> */}
                 <SelectValue placeholder="Select a token to swap" />
               </SelectTrigger>
 
               <SelectContent className=" items-center  rounded-2xl text-center">
-                <SelectItem value="MINA">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/MINA.png`} className=" h-4 w-4" />
-                    MINA
-                  </div>
-                </SelectItem>
-                <SelectItem value="USDT">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/USDT.png`} className=" h-4 w-4" />
-                    USDT
-                  </div>
-                </SelectItem>
-                <SelectItem value="ETH">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/ETH.png`} className=" h-4 w-4" />
-                    ETH
-                  </div>
-                </SelectItem>
-                <SelectItem value="BTC">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/BTC.png`} className=" h-4 w-4" />
-                    BTC
-                  </div>
-                </SelectItem>
+                {tokens.map((token) => (
+                  <SelectItem value={token.name}>
+                    <div className=" flex w-full flex-row gap-4">
+                      <img src={token.icon} className=" h-4 w-4" />
+                      {token.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -230,30 +214,14 @@ export default function CreatePool() {
               </SelectTrigger>
 
               <SelectContent className=" items-center  rounded-2xl text-center">
-                <SelectItem value="MINA">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/MINA.png`} className=" h-4 w-4" />
-                    MINA
-                  </div>
-                </SelectItem>
-                <SelectItem value="USDT">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/USDT.png`} className=" h-4 w-4" />
-                    USDT
-                  </div>
-                </SelectItem>
-                <SelectItem value="ETH">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/ETH.png`} className=" h-4 w-4" />
-                    ETH
-                  </div>
-                </SelectItem>
-                <SelectItem value="BTC">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/BTC.png`} className=" h-4 w-4" />
-                    BTC
-                  </div>
-                </SelectItem>
+                {tokens.map((token) => (
+                  <SelectItem value={token.name}>
+                    <div className=" flex w-full flex-row gap-4">
+                      <img src={token.icon} className=" h-4 w-4" />
+                      {token.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

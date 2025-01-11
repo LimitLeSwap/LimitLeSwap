@@ -18,6 +18,7 @@ import { Fuel } from "lucide-react";
 import { useClientStore } from "@/lib/stores/client";
 import { TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
+import { tokens } from "@/lib/tokens";
 
 export default function Faucet() {
   const walletStore = useWalletStore();
@@ -101,30 +102,14 @@ export default function Faucet() {
               </SelectTrigger>
 
               <SelectContent className=" items-center  rounded-2xl text-center">
-                <SelectItem value="MINA">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/MINA.png`} className=" h-4 w-4" />
-                    MINA
-                  </div>
-                </SelectItem>
-                <SelectItem value="USDT">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/USDT.png`} className=" h-4 w-4" />
-                    USDT
-                  </div>
-                </SelectItem>
-                <SelectItem value="ETH">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/ETH.png`} className=" h-4 w-4" />
-                    ETH
-                  </div>
-                </SelectItem>
-                <SelectItem value="BTC">
-                  <div className=" flex w-full flex-row gap-4">
-                    <img src={`/BTC.png`} className=" h-4 w-4" />
-                    BTC
-                  </div>
-                </SelectItem>
+                {tokens.map((token) => (
+                  <SelectItem value={token.name}>
+                    <div className=" flex w-full flex-row gap-4">
+                      <img src={token.icon} className=" h-4 w-4" />
+                      {token.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

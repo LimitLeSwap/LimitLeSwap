@@ -3,22 +3,22 @@
 export const tokens = [
   {
     name: "MINA",
-    icon: "/mina.png",
+    icon: "/MINA.png",
     tokenId: "0",
   },
   {
     name: "USDT",
-    icon: "/usdt.png",
+    icon: "/USDT.png",
     tokenId: "1",
   },
   {
     name: "ETH",
-    icon: "/eth.png",
+    icon: "/ETH.png",
     tokenId: "2",
   },
   {
     name: "BTC",
-    icon: "/btc.png",
+    icon: "/BTC.png",
     tokenId: "3",
   },
 ];
