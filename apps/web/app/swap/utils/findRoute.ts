@@ -37,21 +37,21 @@ function addPoolEdge(
     string,
     { token: RouteToken; simulateHop: (amountIn: number) => RouteStep[] }[]
   >,
-  from: RouteToken,
-  to: RouteToken,
+  tokenIn: RouteToken,
+  tokenOut: RouteToken,
   pool: Pool,
 ) {
-  if (!graph[from.name]) graph[from.name] = [];
+  if (!graph[tokenIn.name]) graph[tokenIn.name] = [];
 
-  graph[from.name].push({
-    token: to,
+  graph[tokenIn.name].push({
+    token: tokenOut,
     simulateHop: (amountIn: number) => {
       const poolBuyTokenReserve =
-        pool.token0.name === to.name
+        pool.token0.name === tokenOut.name
           ? Number(pool.token0Amount)
           : Number(pool.token1Amount);
       const poolSellTokenReserve =
-        pool.token0.name === from.name
+        pool.token0.name === tokenIn.name
           ? Number(pool.token0Amount)
           : Number(pool.token1Amount);
 
@@ -66,8 +66,8 @@ function addPoolEdge(
 
       return [
         {
-          tokenIn: from,
-          tokenOut: to,
+          tokenIn,
+          tokenOut,
           orders: [],
           poolSwap: true,
           amountIn,
@@ -83,19 +83,20 @@ function addLimitOrderEdge(
     string,
     { token: RouteToken; simulateHop: (amountIn: number) => RouteStep[] }[]
   >,
-  from: RouteToken,
-  to: RouteToken,
+  tokenIn: RouteToken,
+  tokenOut: RouteToken,
   limitStore: LimitStoreState,
 ) {
-  if (!graph[from.name]) graph[from.name] = [];
+  if (!graph[tokenIn.name]) graph[tokenIn.name] = [];
 
-  graph[from.name].push({
-    token: to,
+  graph[tokenIn.name].push({
+    token: tokenOut,
     simulateHop: (amountIn: number) => {
       const relevantOrders = limitStore.limitOrders
         .filter((order) => {
           return (
-            order.tokenInId === from.tokenId && order.tokenOutId === to.tokenId
+            order.tokenInId === tokenIn.tokenId &&
+            order.tokenOutId === tokenOut.tokenId
           );
         })
         .map((order) => {
@@ -105,42 +106,83 @@ function addLimitOrderEdge(
             orderId: order.orderId,
             tokenInAmount: inAmt,
             tokenOutAmount: outAmt,
-            price: outAmt / inAmt,
           };
-        })
-        .sort((a, b) => b.price - a.price);
+        });
 
-      let remaining = amountIn;
-      const chosenOrders = [];
-      let totalOut = 0;
+      const n = relevantOrders.length;
+      const dp: number[][][] = Array.from({ length: n + 1 }, () =>
+        Array.from({ length: amountIn + 1 }, () =>
+          Array.from({ length: MAX_LIMIT_ORDERS + 1 }, () => 0),
+        ),
+      );
 
-      for (
-        let i = 0;
-        i < relevantOrders.length && chosenOrders.length < MAX_LIMIT_ORDERS;
-        i++
-      ) {
-        const ord = relevantOrders[i];
-        if (ord.tokenInAmount <= remaining) {
-          chosenOrders.push(ord);
-          remaining -= ord.tokenInAmount;
-          totalOut += ord.tokenOutAmount;
+      for (let i = 1; i <= n; i++) {
+        const { tokenInAmount, tokenOutAmount } = relevantOrders[i - 1];
+        for (let j = 0; j <= amountIn; j++) {
+          for (let k = 0; k <= MAX_LIMIT_ORDERS; k++) {
+            dp[i][j][k] = dp[i - 1][j][k];
+
+            if (tokenInAmount <= j && k > 0) {
+              dp[i][j][k] = Math.max(
+                dp[i][j][k],
+                dp[i - 1][j - tokenInAmount][k - 1] + tokenOutAmount,
+              );
+            }
+          }
         }
       }
 
+      let bestValue = 0;
+      let bestJ = 0;
+      let bestK = 0;
+      for (let j = 0; j <= amountIn; j++) {
+        for (let k = 0; k <= MAX_LIMIT_ORDERS; k++) {
+          if (dp[n][j][k] > bestValue) {
+            bestValue = dp[n][j][k];
+            bestJ = j;
+            bestK = k;
+          }
+        }
+      }
+
+      const orders = [];
+      let i = n;
+      let j = bestJ;
+      let k = bestK;
+      while (i > 0 && k > 0) {
+        if (dp[i][j][k] !== dp[i - 1][j][k]) {
+          const ord = relevantOrders[i - 1];
+          orders.push(ord);
+          j -= ord.tokenInAmount;
+          k -= 1;
+        }
+        i--;
+      }
+      orders.reverse();
+
+      const amountOut = orders.reduce((acc, o) => acc + o.tokenOutAmount, 0);
+
       const steps: RouteStep[] = [
         {
-          tokenIn: from,
-          tokenOut: to,
-          orders: chosenOrders,
+          tokenIn,
+          tokenOut,
+          orders,
           poolSwap: false,
           amountIn,
-          amountOut: totalOut,
+          amountOut,
         },
       ];
 
       return steps;
     },
   });
+}
+
+interface State {
+  currentToken: RouteToken;
+  currentAmount: number;
+  steps: RouteStep[];
+  hopCount: number;
 }
 
 export function findBestRoute(
@@ -156,53 +198,64 @@ export function findBestRoute(
 
   const graph = buildGraph(poolStore, limitStore);
 
-  // dp[h][tokenName] = {maxAmount: number, route: CompleteRoute}
-  const dp: Record<
-    number,
-    Record<string, { maxAmount: number; route: CompleteRoute }>
-  > = {};
+  let bestRoute: CompleteRoute | null = null;
 
-  for (let h = 0; h <= MAX_HOP; h++) {
-    dp[h] = {};
+  const visited: Record<string, number[]> = {};
+
+  for (const token of poolStore.tokenList) {
+    visited[token.tokenId] = Array(MAX_HOP + 1).fill(0);
   }
 
-  dp[0][sourceToken.name] = {
-    maxAmount: initialAmount,
-    route: { steps: [], finalAmountOut: initialAmount },
-  };
+  visited[sourceToken.tokenId][0] = initialAmount;
 
-  for (let h = 1; h <= MAX_HOP; h++) {
-    for (const tokenName in dp[h - 1]) {
-      const state = dp[h - 1][tokenName];
-      const currentAmount = state.maxAmount;
-      const adj = graph[tokenName] || [];
-      for (const edge of adj) {
-        const nextToken = edge.token;
-        const steps = edge.simulateHop(currentAmount);
-        for (const step of steps) {
-          const newAmount = step.amountOut;
-          const oldBest = dp[h][nextToken.name]?.maxAmount ?? 0;
-          if (newAmount > oldBest) {
-            dp[h][nextToken.name] = {
-              maxAmount: newAmount,
-              route: {
-                steps: [...state.route.steps, step],
-                finalAmountOut: newAmount,
-              },
-            };
-          }
-        }
+  const queue: State[] = [
+    {
+      currentToken: sourceToken,
+      currentAmount: initialAmount,
+      steps: [],
+      hopCount: 0,
+    },
+  ];
+
+  while (queue.length > 0) {
+    const { currentToken, currentAmount, steps, hopCount } = queue.shift()!;
+
+    if (currentToken.tokenId === targetToken.tokenId) {
+      if (!bestRoute || currentAmount > bestRoute.finalAmountOut) {
+        bestRoute = {
+          steps,
+          finalAmountOut: currentAmount,
+        };
       }
     }
-  }
 
-  let bestRoute: CompleteRoute | null = null;
-  let bestAmount = 0;
-  for (let h = 1; h <= MAX_HOP; h++) {
-    const candidate = dp[h][targetToken.name];
-    if (candidate && candidate.maxAmount > bestAmount) {
-      bestAmount = candidate.maxAmount;
-      bestRoute = candidate.route;
+    if (hopCount === MAX_HOP) {
+      continue;
+    }
+
+    const edges = graph[currentToken.name] || [];
+    for (const edge of edges) {
+      const simulatedSteps = edge.simulateHop(currentAmount);
+      for (const step of simulatedSteps) {
+        if (step.amountOut <= 0) continue;
+
+        const nextToken = step.tokenOut;
+        const nextAmount = step.amountOut;
+        const nextHopCount = hopCount + 1;
+
+        if (nextAmount <= visited[nextToken.tokenId][nextHopCount]) {
+          continue;
+        }
+
+        visited[nextToken.tokenId][nextHopCount] = nextAmount;
+
+        queue.push({
+          currentToken: nextToken,
+          currentAmount: nextAmount,
+          steps: [...steps, step],
+          hopCount: nextHopCount,
+        });
+      }
     }
   }
 
