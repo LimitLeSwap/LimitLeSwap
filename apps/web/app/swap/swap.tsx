@@ -1,4 +1,5 @@
 "use client";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CustomInput } from "@/components/ui/input";
@@ -10,35 +11,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useWalletStore } from "@/lib/stores/wallet";
-import { ArrowUpDown, Route as RouteIcon } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
-import { usePoolStore } from "@/lib/stores/poolStore";
-import { useHasMounted } from "@/lib/customHooks";
-import { useClientStore } from "@/lib/stores/client";
-import { Balance, TokenId } from "@proto-kit/library";
 import { useToast } from "@/components/ui/use-toast";
-import { Field, PublicKey } from "o1js";
-import { DECIMALS } from "@/lib/constants";
-import { Route, Step } from "@/lib/stores/limitStore";
-import { OrderBundle, useLimitStore } from "@/lib/stores/limitStore";
+import { ArrowUpDown, Route as RouteIcon } from "lucide-react";
+
+import { useWalletStore } from "@/lib/stores/wallet";
+import { usePoolStore } from "@/lib/stores/poolStore";
+import { useClientStore } from "@/lib/stores/client";
 import { useChainStore } from "@/lib/stores/chain";
-import { PendingTransaction } from "@proto-kit/sequencer";
-import { findBestRoute } from "./utils/findRoute";
-import { findTokenAndPoolByName } from "@/lib/common";
-import PriceChart from "./priceChart";
 import { useChartStore, useObserveCandles } from "@/lib/stores/chartStore";
+import {
+  OrderBundle,
+  Route,
+  Step,
+  useLimitStore,
+} from "@/lib/stores/limitStore";
+import { useHasMounted } from "@/lib/customHooks";
+import { findTokenAndPoolByName } from "@/lib/common";
 import { tokens } from "@/lib/tokens";
+import { DECIMALS } from "@/lib/constants";
+import PriceChart from "./priceChart";
+
+import { PublicKey } from "o1js";
+import { PendingTransaction } from "@proto-kit/sequencer";
+import { Balance, TokenId } from "@proto-kit/library";
+import { Field } from "o1js";
+import { useWorkerStore } from "@/lib/stores/workerStore";
 
 export default function Swap() {
   const walletStore = useWalletStore();
   const limitStore = useLimitStore();
   const hasMounted = useHasMounted();
-  const chainStore = useChainStore();
   const poolStore = usePoolStore();
   const client = useClientStore();
   const chartStore = useChartStore();
   const wallet = walletStore.wallet;
+  const workerStore = useWorkerStore();
 
   const [state, setState] = useState({
     sellToken: "MINA",
@@ -47,6 +54,8 @@ export default function Swap() {
     buyAmount: 0,
     priceImpact: "0",
   });
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [waitApproval, setWaitApproval] = useState(false);
   const [route, setRoute] = useState<CompleteRoute | null>(null);
@@ -74,61 +83,83 @@ export default function Swap() {
   ]);
 
   useEffect(() => {
-    if (!hasMounted || !sellTokenObj || !buyTokenObj) {
-      return;
+    if (hasMounted && !workerStore.isReady) {
+      workerStore.startWorker();
     }
+  }, [hasMounted]);
 
-    if (pool) {
-      console.log("setting pool", pool);
-      chartStore.setPool(pool);
-    }
+  useEffect(() => {
+    if (!hasMounted) return;
+    if (!workerStore.isReady) return;
+    if (!sellTokenObj || !buyTokenObj) return;
 
     const sellAmountNum = parseFloat(state.sellAmount);
     if (isNaN(sellAmountNum) || sellAmountNum <= 0) {
-      setState((prev) => ({
-        ...prev,
-        buyAmount: 0,
-        priceImpact: "0",
-      }));
-      setlimitState({
-        execute: false,
-        ordersToFill: [],
-        bestAmountOut: 0,
-        newPriceImpact: 0,
-      });
+      setState((prev) => ({ ...prev, buyAmount: 0 }));
+      setRoute(null);
       return;
     }
 
-    const sellAmount = sellAmountNum * Number(DECIMALS);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
 
-    const route = findBestRoute(
-      sellTokenObj,
-      buyTokenObj,
-      sellAmount,
-      poolStore,
-      limitStore,
-    );
+    console.log("debounceRef.current", debounceRef.current);
 
-    console.log(route);
-    if (!route) return;
-    setRoute(route);
+    debounceRef.current = setTimeout(() => {
+      const sellAmountRaw = Math.floor(sellAmountNum * Number(DECIMALS));
 
-    setState({
-      ...state,
-      buyAmount: Number(route.finalAmountOut) ?? 0,
-    });
+      console.log("send message to worker");
+      workerStore
+        .findRoute(
+          sellTokenObj,
+          buyTokenObj,
+          sellAmountRaw,
+          {
+            tokenList: poolStore.tokenList,
+            poolList: poolStore.poolList,
+            positionList: poolStore.positionList,
+          } as PoolStoreState,
+          {
+            limitOrders: limitStore.limitOrders,
+          } as LimitStoreState,
+        )
+        .then((route) => {
+          console.log("route", route);
+          setRoute(route);
+        });
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
   }, [
+    hasMounted,
+    state.sellAmount,
     state.sellToken,
     state.buyToken,
-    state.sellAmount,
-    hasMounted,
-    poolStore.poolList,
-    chainStore,
-    limitStore,
     sellTokenObj,
     buyTokenObj,
-    pool,
+    poolStore,
+    limitStore,
   ]);
+
+  useEffect(() => {
+    if (route?.finalAmountOut) {
+      setState((prev) => ({
+        ...prev,
+        buyAmount: route.finalAmountOut,
+      }));
+    }
+  }, [route]);
+
+  useEffect(() => {
+    if (pool) {
+      chartStore.setPool(pool);
+    }
+  }, [pool]);
 
   useObserveCandles();
 

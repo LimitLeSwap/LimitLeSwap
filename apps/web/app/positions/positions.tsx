@@ -32,7 +32,7 @@ export default function Positions() {
       <div className="flex w-full max-w-[470px] sm:w-[470px]">
         <div className="flex w-full flex-col items-center">
           <h2 className=" p-4 text-lg font-bold">My Positions</h2>
-          <div className="rounded-2xl border">
+          <div className="w-full rounded-2xl border">
             <Table>
               <TableHeader>
                 <TableRow>
