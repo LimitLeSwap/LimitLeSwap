@@ -3,16 +3,18 @@ import { calculateSwap } from "./swapFunctions";
 const MAX_HOP = 5;
 const MAX_LIMIT_ORDERS = 10;
 
+const SCALE_FACTOR = 1e3;
+const EPSILON = 1.001;
+
 function buildGraph(poolStore: PoolStoreState, limitStore: LimitStoreState) {
   const graph: Record<
     string,
-    { token: RouteToken; simulateHop: (amountIn: number) => RouteStep[] }[]
+    { token: RouteToken; simulateHop: (scaledIn: number) => RouteStep[] }[]
   > = {};
 
   for (const pool of poolStore.poolList) {
     const t0 = pool.token0;
     const t1 = pool.token1;
-
     addPoolEdge(graph, t0, t1, pool);
     addPoolEdge(graph, t1, t0, pool);
   }
@@ -35,7 +37,7 @@ function buildGraph(poolStore: PoolStoreState, limitStore: LimitStoreState) {
 function addPoolEdge(
   graph: Record<
     string,
-    { token: RouteToken; simulateHop: (amountIn: number) => RouteStep[] }[]
+    { token: RouteToken; simulateHop: (scaledIn: number) => RouteStep[] }[]
   >,
   tokenIn: RouteToken,
   tokenOut: RouteToken,
@@ -45,11 +47,14 @@ function addPoolEdge(
 
   graph[tokenIn.name].push({
     token: tokenOut,
-    simulateHop: (amountIn: number) => {
+    simulateHop: (scaledAmountIn: number) => {
+      const realAmountIn = scaledAmountIn * SCALE_FACTOR;
+
       const poolBuyTokenReserve =
         pool.token0.name === tokenOut.name
           ? Number(pool.token0Amount)
           : Number(pool.token1Amount);
+
       const poolSellTokenReserve =
         pool.token0.name === tokenIn.name
           ? Number(pool.token0Amount)
@@ -60,9 +65,11 @@ function addPoolEdge(
       const { amountOut } = calculateSwap(
         poolBuyTokenReserve,
         poolSellTokenReserve,
-        amountIn,
+        realAmountIn,
         poolFeeTier,
       );
+
+      const scaledAmountOut = Math.floor(amountOut / SCALE_FACTOR);
 
       return [
         {
@@ -70,8 +77,8 @@ function addPoolEdge(
           tokenOut,
           orders: [],
           poolSwap: true,
-          amountIn,
-          amountOut,
+          amountIn: scaledAmountIn,
+          amountOut: scaledAmountOut,
         },
       ];
     },
@@ -81,7 +88,7 @@ function addPoolEdge(
 function addLimitOrderEdge(
   graph: Record<
     string,
-    { token: RouteToken; simulateHop: (amountIn: number) => RouteStep[] }[]
+    { token: RouteToken; simulateHop: (scaledIn: number) => RouteStep[] }[]
   >,
   tokenIn: RouteToken,
   tokenOut: RouteToken,
@@ -91,17 +98,18 @@ function addLimitOrderEdge(
 
   graph[tokenIn.name].push({
     token: tokenOut,
-    simulateHop: (amountIn: number) => {
+    simulateHop: (scaledAmountIn: number) => {
       const relevantOrders = limitStore.limitOrders
-        .filter((order) => {
-          return (
+        .filter(
+          (order) =>
             order.tokenInId === tokenIn.tokenId &&
-            order.tokenOutId === tokenOut.tokenId
-          );
-        })
+            order.tokenOutId === tokenOut.tokenId,
+        )
         .map((order) => {
-          const inAmt = Number(order.tokenInAmount);
-          const outAmt = Number(order.tokenOutAmount);
+          const inAmt = Math.floor(Number(order.tokenInAmount) / SCALE_FACTOR);
+          const outAmt = Math.floor(
+            Number(order.tokenOutAmount) / SCALE_FACTOR,
+          );
           return {
             orderId: order.orderId,
             tokenInAmount: inAmt,
@@ -111,17 +119,16 @@ function addLimitOrderEdge(
 
       const n = relevantOrders.length;
       const dp: number[][][] = Array.from({ length: n + 1 }, () =>
-        Array.from({ length: amountIn + 1 }, () =>
+        Array.from({ length: scaledAmountIn + 1 }, () =>
           Array.from({ length: MAX_LIMIT_ORDERS + 1 }, () => 0),
         ),
       );
 
       for (let i = 1; i <= n; i++) {
         const { tokenInAmount, tokenOutAmount } = relevantOrders[i - 1];
-        for (let j = 0; j <= amountIn; j++) {
+        for (let j = 0; j <= scaledAmountIn; j++) {
           for (let k = 0; k <= MAX_LIMIT_ORDERS; k++) {
             dp[i][j][k] = dp[i - 1][j][k];
-
             if (tokenInAmount <= j && k > 0) {
               dp[i][j][k] = Math.max(
                 dp[i][j][k],
@@ -135,7 +142,7 @@ function addLimitOrderEdge(
       let bestValue = 0;
       let bestJ = 0;
       let bestK = 0;
-      for (let j = 0; j <= amountIn; j++) {
+      for (let j = 0; j <= scaledAmountIn; j++) {
         for (let k = 0; k <= MAX_LIMIT_ORDERS; k++) {
           if (dp[n][j][k] > bestValue) {
             bestValue = dp[n][j][k];
@@ -160,35 +167,26 @@ function addLimitOrderEdge(
       }
       orders.reverse();
 
-      const amountOut = orders.reduce((acc, o) => acc + o.tokenOutAmount, 0);
+      const scaledAmountOut = bestValue;
 
-      const steps: RouteStep[] = [
+      return [
         {
           tokenIn,
           tokenOut,
           orders,
           poolSwap: false,
-          amountIn,
-          amountOut,
+          amountIn: scaledAmountIn,
+          amountOut: scaledAmountOut,
         },
       ];
-
-      return steps;
     },
   });
-}
-
-interface State {
-  currentToken: RouteToken;
-  currentAmount: number;
-  steps: RouteStep[];
-  hopCount: number;
 }
 
 export function findBestRoute(
   sourceToken: RouteToken,
   targetToken: RouteToken,
-  initialAmount: number,
+  rawInitialAmount: number,
   poolStore: PoolStoreState,
   limitStore: LimitStoreState,
 ): CompleteRoute | null {
@@ -196,68 +194,113 @@ export function findBestRoute(
   console.log("poolList", poolStore.poolList);
   console.log("limitOrders", limitStore.limitOrders);
 
+  const scaledInitialAmount = Math.floor(rawInitialAmount / SCALE_FACTOR);
+  if (scaledInitialAmount <= 0) {
+    return null;
+  }
+
   const graph = buildGraph(poolStore, limitStore);
 
-  let bestRoute: CompleteRoute | null = null;
+  const tokenIdToIndex: Record<string, number> = {};
+  poolStore.tokenList.forEach((t, i) => {
+    tokenIdToIndex[t.tokenId] = i;
+  });
+  const nTokens = poolStore.tokenList.length;
 
-  const visited: Record<string, number[]> = {};
+  const dp = Array.from({ length: MAX_HOP + 1 }, () =>
+    new Array<number>(nTokens).fill(0),
+  );
 
-  for (const token of poolStore.tokenList) {
-    visited[token.tokenId] = Array(MAX_HOP + 1).fill(0);
+  interface ParentInfo {
+    prevHop: number;
+    prevTokenId: string;
+    step: RouteStep; // the step that got us here
   }
+  const parent = Array.from({ length: MAX_HOP + 1 }, () =>
+    new Array<ParentInfo | undefined>(nTokens).fill(undefined),
+  );
 
-  visited[sourceToken.tokenId][0] = initialAmount;
+  // init
+  const sourceIdx = tokenIdToIndex[sourceToken.tokenId];
+  dp[0][sourceIdx] = scaledInitialAmount;
 
-  const queue: State[] = [
-    {
-      currentToken: sourceToken,
-      currentAmount: initialAmount,
-      steps: [],
-      hopCount: 0,
-    },
-  ];
+  // fill dp up to 5 hops
+  for (let h = 0; h < MAX_HOP; h++) {
+    for (let i = 0; i < nTokens; i++) {
+      const curAmount = dp[h][i];
+      if (curAmount <= 0) continue; // nothing to expand
 
-  while (queue.length > 0) {
-    const { currentToken, currentAmount, steps, hopCount } = queue.shift()!;
+      // Also carry forward if no swap
+      if (curAmount > dp[h + 1][i]) {
+        dp[h + 1][i] = curAmount;
+        parent[h + 1][i] = parent[h][i];
+      }
 
-    if (currentToken.tokenId === targetToken.tokenId) {
-      if (!bestRoute || currentAmount > bestRoute.finalAmountOut) {
-        bestRoute = {
-          steps,
-          finalAmountOut: currentAmount,
-        };
+      // Expand edges
+      const curToken = poolStore.tokenList[i];
+      const edges = graph[curToken.name] || [];
+      for (const edge of edges) {
+        const nextTokenIdx = tokenIdToIndex[edge.token.tokenId];
+        const steps = edge.simulateHop(curAmount); // scaled in
+
+        for (const st of steps) {
+          // pruning with epsilon
+          if (st.amountOut <= dp[h + 1][nextTokenIdx] * EPSILON) {
+            // improvement is too small (or no improvement)
+            continue;
+          }
+
+          if (st.amountOut > dp[h + 1][nextTokenIdx]) {
+            dp[h + 1][nextTokenIdx] = st.amountOut;
+            parent[h + 1][nextTokenIdx] = {
+              prevHop: h,
+              prevTokenId: curToken.tokenId,
+              step: st,
+            };
+          }
+        }
       }
     }
+  }
 
-    if (hopCount === MAX_HOP) {
+  const targetIdx = tokenIdToIndex[targetToken.tokenId];
+  let bestHop = 0;
+  let bestScaledOut = 0;
+  for (let h = 0; h <= MAX_HOP; h++) {
+    if (dp[h][targetIdx] > bestScaledOut) {
+      bestScaledOut = dp[h][targetIdx];
+      bestHop = h;
+    }
+  }
+  if (bestScaledOut <= 0) {
+    return null; // no route
+  }
+
+  // backtrack
+  const routeSteps: RouteStep[] = [];
+  let curHop = bestHop;
+  let curIdx = targetIdx;
+
+  while (curHop > 0) {
+    const p = parent[curHop][curIdx];
+    if (!p) {
+      // means we carried forward from hop-1 with no swap
+      curHop--;
       continue;
     }
+    routeSteps.push(p.step);
 
-    const edges = graph[currentToken.name] || [];
-    for (const edge of edges) {
-      const simulatedSteps = edge.simulateHop(currentAmount);
-      for (const step of simulatedSteps) {
-        if (step.amountOut <= 0) continue;
-
-        const nextToken = step.tokenOut;
-        const nextAmount = step.amountOut;
-        const nextHopCount = hopCount + 1;
-
-        if (nextAmount <= visited[nextToken.tokenId][nextHopCount]) {
-          continue;
-        }
-
-        visited[nextToken.tokenId][nextHopCount] = nextAmount;
-
-        queue.push({
-          currentToken: nextToken,
-          currentAmount: nextAmount,
-          steps: [...steps, step],
-          hopCount: nextHopCount,
-        });
-      }
-    }
+    // go to parent's token
+    curIdx = tokenIdToIndex[p.prevTokenId];
+    curHop = p.prevHop;
   }
+  routeSteps.reverse();
 
-  return bestRoute;
+  // Scale final back for user display
+  const finalAmountOut = bestScaledOut * SCALE_FACTOR;
+
+  return {
+    steps: routeSteps,
+    finalAmountOut,
+  };
 }
