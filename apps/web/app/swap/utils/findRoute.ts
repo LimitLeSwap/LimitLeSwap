@@ -1,3 +1,7 @@
+// Customized knapsack algorithm to find the best route for a swap
+// based on the available pools and limit orders
+// To find the best route, maybe we can use a heuristic approach
+
 import { calculateSwap } from "./swapFunctions";
 
 const MAX_HOP = 5;
@@ -214,39 +218,33 @@ export function findBestRoute(
   interface ParentInfo {
     prevHop: number;
     prevTokenId: string;
-    step: RouteStep; // the step that got us here
+    step: RouteStep;
   }
   const parent = Array.from({ length: MAX_HOP + 1 }, () =>
     new Array<ParentInfo | undefined>(nTokens).fill(undefined),
   );
 
-  // init
   const sourceIdx = tokenIdToIndex[sourceToken.tokenId];
   dp[0][sourceIdx] = scaledInitialAmount;
 
-  // fill dp up to 5 hops
   for (let h = 0; h < MAX_HOP; h++) {
     for (let i = 0; i < nTokens; i++) {
       const curAmount = dp[h][i];
-      if (curAmount <= 0) continue; // nothing to expand
+      if (curAmount <= 0) continue;
 
-      // Also carry forward if no swap
       if (curAmount > dp[h + 1][i]) {
         dp[h + 1][i] = curAmount;
         parent[h + 1][i] = parent[h][i];
       }
 
-      // Expand edges
       const curToken = poolStore.tokenList[i];
       const edges = graph[curToken.name] || [];
       for (const edge of edges) {
         const nextTokenIdx = tokenIdToIndex[edge.token.tokenId];
-        const steps = edge.simulateHop(curAmount); // scaled in
+        const steps = edge.simulateHop(curAmount);
 
         for (const st of steps) {
-          // pruning with epsilon
           if (st.amountOut <= dp[h + 1][nextTokenIdx] * EPSILON) {
-            // improvement is too small (or no improvement)
             continue;
           }
 
@@ -273,10 +271,9 @@ export function findBestRoute(
     }
   }
   if (bestScaledOut <= 0) {
-    return null; // no route
+    return null;
   }
 
-  // backtrack
   const routeSteps: RouteStep[] = [];
   let curHop = bestHop;
   let curIdx = targetIdx;
@@ -284,19 +281,16 @@ export function findBestRoute(
   while (curHop > 0) {
     const p = parent[curHop][curIdx];
     if (!p) {
-      // means we carried forward from hop-1 with no swap
       curHop--;
       continue;
     }
     routeSteps.push(p.step);
 
-    // go to parent's token
     curIdx = tokenIdToIndex[p.prevTokenId];
     curHop = p.prevHop;
   }
   routeSteps.reverse();
 
-  // Scale final back for user display
   const finalAmountOut = bestScaledOut * SCALE_FACTOR;
 
   return {
