@@ -70,6 +70,7 @@ export default function Swap() {
     bestAmountOut: 0,
     newPriceImpact: 0,
   });
+  const [isCalculating, setIsCalculating] = useState(false);
 
   const { toast } = useToast();
 
@@ -104,8 +105,9 @@ export default function Swap() {
       clearTimeout(debounceRef.current);
     }
 
-    console.log("debounceRef.current", debounceRef.current);
+    // console.log("debounceRef.current", debounceRef.current);
 
+    setIsCalculating(true);
     debounceRef.current = setTimeout(() => {
       const sellAmountRaw = Math.floor(sellAmountNum * Number(DECIMALS));
 
@@ -127,6 +129,7 @@ export default function Swap() {
         .then((route) => {
           console.log("route", route);
           setRoute(route);
+          setIsCalculating(false);
         });
     }, 500);
 
@@ -367,12 +370,12 @@ export default function Swap() {
               Buy
               <CustomInput
                 value={
-                  state.buyAmount
+                  !isCalculating && state.buyAmount
                     ? (state.buyAmount / Number(DECIMALS)).toFixed(4)
                     : ""
                 }
                 readOnly
-                placeholder={"0"}
+                placeholder={isCalculating ? "..." : "0"}
                 pattern="^[0-9]*[.,]?[0-9]*$"
                 inputMode="decimal"
                 type="text"
@@ -447,13 +450,13 @@ export default function Swap() {
         <PriceChart
           candleData={
             pool?.token0.name === state.sellToken
-              ? chartStore.chartData0
-              : chartStore.chartData1
+              ? chartStore.chartData1
+              : chartStore.chartData0
           }
           volumeData={
             pool?.token0.name === state.sellToken
-              ? chartStore.chartData0
-              : chartStore.chartData1
+              ? chartStore.chartData1
+              : chartStore.chartData0
           }
         />
       </div>
