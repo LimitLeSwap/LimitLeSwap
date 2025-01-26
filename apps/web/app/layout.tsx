@@ -7,6 +7,8 @@ import AsyncLayoutDynamic from "@/containers/async-layout-dynamic";
 
 export const fontSans = FontSans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
   variable: "--font-sans",
 });
 
