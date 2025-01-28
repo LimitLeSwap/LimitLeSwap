@@ -58,10 +58,12 @@ model Pool {
   updatedAt DateTime @updatedAt
 }
 
-model Swap {
-  id Int @id @default(autoincrement())
+model TokenTrade {
+  id Int @id @default(autoincrement()) // what if overflow?
   txHash String
   poolId String
+  token0Id String
+  token1Id String
   token0Amount BigInt
   token1Amount BigInt
   token0In1Out Boolean
@@ -70,6 +72,10 @@ model Swap {
   blockHeight Int
   owner String
   createdAt DateTime @default(now())
+
+  @@index([token0Id, token1Id])
+  @@index([token0Id, token1Id, token0In1Out])
+  @@index([owner])
 }
 
 model LimitOrder {

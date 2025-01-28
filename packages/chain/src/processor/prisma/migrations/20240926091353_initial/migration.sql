@@ -48,11 +48,13 @@ CREATE TABLE "Pool" (
     CONSTRAINT "Pool_pkey" PRIMARY KEY ("poolId")
 );
 
--- CreateTable Swap
-CREATE TABLE "Swap" (
+-- CreateTable TokenTrade
+CREATE TABLE "TokenTrade" (
     "id" SERIAL,
     "txHash" TEXT NOT NULL,
     "poolId" TEXT NOT NULL,
+    "token0Id" TEXT NOT NULL,
+    "token1Id" TEXT NOT NULL,
     "token0Amount" BIGINT NOT NULL,
     "token1Amount" BIGINT NOT NULL,
     "token0In1Out" BOOLEAN NOT NULL,
@@ -63,6 +65,10 @@ CREATE TABLE "Swap" (
     "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT "Swap_pkey" PRIMARY KEY ("id")
 );
+
+CREATE INDEX "TokenTrade_token0Id_token1Id_idx" ON "TokenTrade" ("token0Id", "token1Id");
+CREATE INDEX "TokenTrade_token0Id_token1Id_token0In1Out_idx" ON "TokenTrade" ("token0Id", "token1Id", "token0In1Out");
+CREATE INDEX "TokenTrade_owner_idx" ON "TokenTrade" ("owner");
 
 -- CreateTable LimitOrder
 CREATE TABLE "LimitOrder" (

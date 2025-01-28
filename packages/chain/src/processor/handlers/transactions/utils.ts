@@ -251,6 +251,52 @@ export const updatePriceCandle = async (
     }
 };
 
+export const handleTokenTradePrisma = async (
+    client: Parameters<BlockHandler<PrismaClient>>[0],
+    txHash: string,
+    poolId: string,
+    token0Id: string,
+    token1Id: string,
+    token0Amount: bigint,
+    token1Amount: bigint,
+    token0In1Out: boolean,
+    token0Price: Prisma.Decimal,
+    token1Price: Prisma.Decimal,
+    blockHeight: number,
+    owner: string
+) => {
+    await client.tokenTrade.create({
+        data: {
+            txHash,
+            poolId,
+            token0Id,
+            token1Id,
+            token0Amount,
+            token1Amount,
+            token0In1Out,
+            token0Price,
+            token1Price,
+            blockHeight,
+            owner,
+        },
+    });
+
+    console.log("Trade recorded");
+    console.table({
+        txHash,
+        poolId,
+        token0Id,
+        token1Id,
+        token0Amount,
+        token1Amount,
+        token0In1Out,
+        token0Price: token0Price.toString(),
+        token1Price: token1Price.toString(),
+        blockHeight,
+        owner,
+    });
+};
+
 export const handleSwapPrisma = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
     txHash: string,
@@ -262,62 +308,31 @@ export const handleSwapPrisma = async (
     tokenOutAmount: Balance,
     blockHeight: number
 ) => {
-    const {
-        token0Id,
-        token1Id,
-        token0AmountBefore,
-        token1AmountBefore,
-        token0PriceBefore,
-        token1PriceBefore,
-        token0Amount,
-        token1Amount,
-        token0AmountAfter,
-        token1AmountAfter,
-        token0PriceAfter,
-        token1PriceAfter,
-    } = await getToken0AndToken1WithPricesV2(
-        client,
-        tokenIn,
-        tokenOut,
-        tokenInAmount,
-        tokenOutAmount
-    );
+    const { token0Id, token1Id, token0Amount, token1Amount, token0PriceAfter, token1PriceAfter } =
+        await getToken0AndToken1WithPricesV2(
+            client,
+            tokenIn,
+            tokenOut,
+            tokenInAmount,
+            tokenOutAmount
+        );
 
     const token0In1Out = tokenIn.toString() === token0Id;
 
-    console.table({
+    await handleTokenTradePrisma(
+        client,
         txHash,
         poolId,
         token0Id,
         token1Id,
-        tokenIn: tokenIn.toString(),
-        tokenOut: tokenOut.toString(),
-        tokenInAmount: tokenInAmount.toBigInt(),
-        tokenOutAmount: tokenOutAmount.toBigInt(),
+        token0Amount,
+        token1Amount,
         token0In1Out,
-        token0Price: token0PriceAfter.toString(),
-        token1Price: token1PriceAfter.toString(),
+        token0PriceAfter,
+        token1PriceAfter,
         blockHeight,
-        owner,
-    });
-
-    await client.swap.create({
-        data: {
-            txHash,
-            poolId,
-            // token0Id: token0Id.toString(),
-            // token1Id: token1Id.toString(),
-            token0Amount,
-            token1Amount,
-            token0In1Out,
-            token0Price: token0PriceAfter,
-            token1Price: token1PriceAfter,
-            blockHeight,
-            owner,
-        },
-    });
-
-    console.log("Created swap");
+        owner
+    );
 
     if (token0In1Out) {
         await client.pool.update({
@@ -385,6 +400,7 @@ export const handleSwapPrisma = async (
 
 export const handleExecuteLimitOrderPrisma = async (
     client: Parameters<BlockHandler<PrismaClient>>[0],
+    txHash: string,
     totalTokenIn: Balance,
     totalTokenOut: Balance,
     orderId: string,
@@ -488,6 +504,21 @@ export const handleExecuteLimitOrderPrisma = async (
         blockHeight
     );
 
+    await handleTokenTradePrisma(
+        client,
+        txHash,
+        poolId,
+        token0Id,
+        token1Id,
+        token0Amount,
+        token1Amount,
+        token0In1Out,
+        new Prisma.Decimal(token0Amount.toString()).div(token1Amount.toString()),
+        new Prisma.Decimal(token1Amount.toString()).div(token0Amount.toString()),
+        blockHeight,
+        executer
+    );
+
     return {
         remainingTokenIn: totalTokenIn.toBigInt() - tokenInAmount,
         remainingTokenOut: totalTokenOut.toBigInt() - tokenOutAmount,
@@ -512,6 +543,7 @@ export const handleSwapWithLimitOrderPrisma = async (
     for (const order of bundle) {
         const result = await handleExecuteLimitOrderPrisma(
             client,
+            txHash,
             remainingAmountIn,
             remainingAmountOut,
             order.toString(),
