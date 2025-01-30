@@ -68,7 +68,7 @@ export const useObserveCandles = () => {
   const chain = useChainStore();
 
   useEffect(() => {
-    console.log("Observing candles of pool", pool);
+    // console.log("Observing candles of pool", pool);
     if (pool === null) {
       return;
     }

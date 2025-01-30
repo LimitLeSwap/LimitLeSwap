@@ -92,7 +92,7 @@ export const useObserveOrders = () => {
   const previousLimitOrdersRef = useRef<LimitOrder[]>(limitStore.limitOrders);
 
   useEffect(() => {
-    console.log("Observing orders");
+    // console.log("Observing orders");
 
     (async () => {
       // Wait for the chain to be processed
@@ -146,7 +146,7 @@ export const useObserveOrders = () => {
         previousLimitOrdersRef.current = [...data.limitOrders];
       }
 
-      console.log("limit store", limitStore.limitOrders);
+      // console.log("limit store", limitStore.limitOrders);
     })();
   }, [chain.block?.height]);
 };
