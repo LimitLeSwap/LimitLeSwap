@@ -95,7 +95,7 @@ export default function Swap() {
     if (!sellTokenObj || !buyTokenObj) return;
 
     const sellAmountNum = parseFloat(state.sellAmount);
-    if (isNaN(sellAmountNum) || sellAmountNum <= 0) {
+    if (isNaN(sellAmountNum) || sellAmountNum <= 0.001) {
       setState((prev) => ({ ...prev, buyAmount: 0 }));
       setRoute(null);
       return;
@@ -187,6 +187,8 @@ export default function Swap() {
       const routerModule = client.client.runtime.resolve("RouterModule");
       const sellAmountNum = parseFloat(state.sellAmount);
       if (isNaN(sellAmountNum) || sellAmountNum <= 0) return;
+
+      console.log("swap route", route);
 
       if (route.steps.length === 1) {
         if (route.steps[0].orders.length > 0) {

@@ -6,8 +6,6 @@ import { PrivateKey } from "o1js";
 import { MockPoolStore, MockLimitStore } from "./mockStores";
 import { findBestRoute } from "../utils/findRoute";
 
-const currentBlockHeight = 1000;
-
 function printRouteResult(
   description: string,
   bestRoute: any,
@@ -78,24 +76,24 @@ export default function TestScenarios() {
 
       const limitOrders = [
         {
-          orderId: 1,
-          tokenIn: "1",
-          tokenOut: "3",
+          orderId: "1",
+          tokenInId: "1",
+          tokenOutId: "3",
           tokenInAmount: "10000",
           tokenOutAmount: "11000",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
         {
-          orderId: 2,
-          tokenIn: "1",
-          tokenOut: "3",
+          orderId: "2",
+          tokenInId: "1",
+          tokenOutId: "3",
           tokenInAmount: "10000",
           tokenOutAmount: "10050",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
       ];
 
@@ -115,7 +113,6 @@ export default function TestScenarios() {
         {
           limitOrders: limitStore.getLimitOrders(),
         },
-        currentBlockHeight,
       );
 
       return printRouteResult(
@@ -188,24 +185,24 @@ export default function TestScenarios() {
 
       const limitOrders = [
         {
-          orderId: 1,
-          tokenIn: "1",
-          tokenOut: "4",
+          orderId: "1",
+          tokenInId: "1",
+          tokenOutId: "4",
           tokenInAmount: "10000",
           tokenOutAmount: "20000",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
         {
-          orderId: 2,
-          tokenIn: "4",
-          tokenOut: "6",
+          orderId: "2",
+          tokenInId: "4",
+          tokenOutId: "6",
           tokenInAmount: "20000",
           tokenOutAmount: "30000",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
       ];
 
@@ -225,7 +222,6 @@ export default function TestScenarios() {
         {
           limitOrders: limitStore.getLimitOrders(),
         },
-        currentBlockHeight,
       );
 
       return printRouteResult(
@@ -252,34 +248,34 @@ export default function TestScenarios() {
       // Limit orders that chain A->X, X->Y, Y->F with good rates
       const limitOrders = [
         {
-          orderId: 1,
-          tokenIn: "1", // A
-          tokenOut: "2", // X
+          orderId: "1",
+          tokenInId: "1", // A
+          tokenOutId: "2", // X
           tokenInAmount: "10000",
           tokenOutAmount: "12000",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
         {
-          orderId: 2,
-          tokenIn: "2", // X
-          tokenOut: "3", // Y
+          orderId: "2",
+          tokenInId: "2", // X
+          tokenOutId: "3", // Y
           tokenInAmount: "12000",
           tokenOutAmount: "15000",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
         {
-          orderId: 3,
-          tokenIn: "3", // Y
-          tokenOut: "4", // F
+          orderId: "3",
+          tokenInId: "3", // Y
+          tokenOutId: "4", // F
           tokenInAmount: "15000",
           tokenOutAmount: "20000",
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
       ];
 
@@ -297,7 +293,6 @@ export default function TestScenarios() {
         {
           limitOrders: limitStore.getLimitOrders(),
         },
-        currentBlockHeight,
       );
       return printRouteResult(
         "SCENARIO 3: Limit orders only (no pools) forming a multi-hop chain",
@@ -329,14 +324,14 @@ export default function TestScenarios() {
       // Add a limit order A->C but with worse rate than the pool
       const limitOrders = [
         {
-          orderId: 1,
-          tokenIn: "1", // A
-          tokenOut: "3", // C
+          orderId: "1",
+          tokenInId: "1", // A
+          tokenOutId: "3", // C
           tokenInAmount: "10000",
           tokenOutAmount: "9000", // Worse than the pool
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         },
       ];
 
@@ -356,7 +351,6 @@ export default function TestScenarios() {
         {
           limitOrders: limitStore.getLimitOrders(),
         },
-        currentBlockHeight,
       );
       return printRouteResult(
         "SCENARIO 4: Pools yield a better rate than limit orders",
@@ -385,14 +379,14 @@ export default function TestScenarios() {
         const ratio = 2 - i * 0.1; // best is 2.0, worst ~0.9
         const outAmt = Math.floor(1000 * ratio);
         limitOrders.push({
-          orderId: i + 1,
-          tokenIn: "1",
-          tokenOut: "2",
+          orderId: "i" + 1,
+          tokenInId: "1",
+          tokenOutId: "2",
           tokenInAmount: "1000",
           tokenOutAmount: outAmt.toString(),
-          owner: PrivateKey.random().toPublicKey(),
-          expiration: "9999999",
-          isActive: true,
+          owner: PrivateKey.random().toPublicKey().toBase58(),
+          expireBlock: 9999999,
+          createdAt: "2021",
         });
       }
 
@@ -412,7 +406,6 @@ export default function TestScenarios() {
         {
           limitOrders: limitStore.getLimitOrders(),
         },
-        currentBlockHeight,
       );
       return printRouteResult(
         "SCENARIO 5: More than 10 limit orders, only best 10 chosen",

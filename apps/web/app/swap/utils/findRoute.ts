@@ -2,12 +2,12 @@ import { calculateSwap } from "./swapFunctions";
 
 const MAX_HOP = 5;
 const MAX_LIMIT_ORDERS = 10;
-const SCALE_FACTOR = 1e5;
+const SCALE_FACTOR = 1e3;
 const EPSILON = 1.0001;
 
 type PoolIdIndex = Record<string, number>;
 
-let isDebug = false;
+let isDebug = true;
 function log(...args: any[]) {
   if (isDebug) {
     console.log(...args);

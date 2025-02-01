@@ -8,6 +8,8 @@ import {
 } from "lightweight-charts";
 import React, { useEffect, useRef } from "react";
 import { useHasMounted } from "@/lib/customHooks";
+import { useTheme } from "next-themes";
+import { Card } from "@/components/ui/card";
 
 interface CandleData {
   time: string | UTCTimestamp;
@@ -23,7 +25,7 @@ interface VolumeData {
   color: string;
 }
 
-export default function priceChart({
+export default function PriceChart({
   candleData,
   volumeData,
 }: {
@@ -35,12 +37,61 @@ export default function priceChart({
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
+  const { theme } = useTheme();
   const hasMounted = useHasMounted();
 
-  const handleResize = () => {
-    if (chartRef.current && chartContainerRef.current) {
-      chartRef.current.applyOptions({
-        width: chartContainerRef.current.clientWidth,
+  const getChartColors = (mode: string) => {
+    return mode === "dark"
+      ? {
+          background: "#222",
+          textColor: "#DDD",
+          gridVert: "#222",
+          gridHorz: "#444",
+          borderColor: "#71649C",
+          wickUp: "rgb(54, 116, 217)",
+          upColor: "rgb(54, 116, 217)",
+          wickDown: "rgb(225, 50, 85)",
+          downColor: "rgb(225, 50, 85)",
+        }
+      : {
+          background: "#fff",
+          textColor: "#000",
+          gridVert: "#e0e0e0",
+          gridHorz: "#d0d0d0",
+          borderColor: "#71649C",
+          wickUp: "rgb(34, 197, 94)",
+          upColor: "rgb(34, 197, 94)",
+          wickDown: "rgb(239, 68, 68)",
+          downColor: "rgb(239, 68, 68)",
+        };
+  };
+
+  const applyTheme = () => {
+    if (!chartRef.current) return;
+
+    const colors = getChartColors(theme ?? "light");
+
+    chartRef.current.applyOptions({
+      layout: {
+        background: { type: ColorType.Solid, color: colors.background },
+        textColor: colors.textColor,
+      },
+      grid: {
+        vertLines: { color: colors.gridVert },
+        horzLines: { color: colors.gridHorz },
+      },
+      timeScale: {
+        borderColor: colors.borderColor,
+      },
+    });
+
+    if (seriesRef.current) {
+      seriesRef.current.applyOptions({
+        wickUpColor: colors.wickUp,
+        upColor: colors.upColor,
+        wickDownColor: colors.wickDown,
+        downColor: colors.downColor,
+        borderVisible: false,
       });
     }
   };
@@ -48,27 +99,31 @@ export default function priceChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    const colors = getChartColors(theme ?? "light");
+
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: "#222" },
-        textColor: "#DDD",
+        background: { type: ColorType.Solid, color: colors.background },
+        textColor: colors.textColor,
       },
       grid: {
-        vertLines: { color: "#222" },
-        horzLines: { color: "#444" },
+        vertLines: { color: colors.gridVert },
+        horzLines: { color: colors.gridHorz },
       },
       width: 470,
       height: 300,
       timeScale: {
         timeVisible: true,
+        borderColor: colors.borderColor,
       },
     });
+
     const chartCandleSeries = chart.addCandlestickSeries();
     chartCandleSeries.applyOptions({
-      wickUpColor: "rgb(54, 116, 217)",
-      upColor: "rgb(54, 116, 217)",
-      wickDownColor: "rgb(225, 50, 85)",
-      downColor: "rgb(225, 50, 85)",
+      wickUpColor: colors.wickUp,
+      upColor: colors.upColor,
+      wickDownColor: colors.wickDown,
+      downColor: colors.downColor,
       borderVisible: false,
     });
 
@@ -96,20 +151,18 @@ export default function priceChart({
       },
     });
 
-    chart.timeScale().applyOptions({
-      borderColor: "#71649C",
-    });
-
     chartRef.current = chart;
     seriesRef.current = chartCandleSeries;
     volumeSeriesRef.current = volumeSeries;
-    window.addEventListener("resize", handleResize);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
       chart.remove();
     };
   }, [hasMounted]);
+
+  useEffect(() => {
+    applyTheme();
+  }, [theme]);
 
   useEffect(() => {
     if (!seriesRef.current || !volumeSeriesRef.current) return;
@@ -124,8 +177,8 @@ export default function priceChart({
   }, [candleData, volumeData]);
 
   return (
-    <div className=" overflow-hidden rounded-2xl ">
+    <Card className="overflow-hidden rounded-2xl shadow-none">
       <div ref={chartContainerRef} style={{ width: "100%", height: "300px" }} />
-    </div>
+    </Card>
   );
 }

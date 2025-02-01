@@ -1,30 +1,3 @@
-interface Token {
-  name: string;
-  icon: string;
-  tokenId: string;
-}
-
-interface Pool {
-  poolId: string;
-  token0: Token;
-  token1: Token;
-  token0Amount: string;
-  token1Amount: string;
-  fee: string;
-  lpTokenSupply: string;
-}
-
-interface LimitOrder {
-  orderId: number;
-  tokenIn: string;
-  tokenOut: string;
-  tokenInAmount: string;
-  tokenOutAmount: string;
-  owner: any;
-  expiration: string;
-  isActive: boolean;
-}
-
 export class MockPoolStore {
   private tokenList: Token[] = [];
   private poolList: Pool[] = [];

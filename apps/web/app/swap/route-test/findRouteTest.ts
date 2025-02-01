@@ -15,8 +15,6 @@ function initializeStores() {
   return { poolStore, limitStore };
 }
 
-const currentBlockHeight = 1000;
-
 function printRouteResult(description: string, bestRoute: any) {
   console.log(description);
   if (!bestRoute) {
@@ -66,26 +64,26 @@ function scenarioSingleHopWithLimitOrders() {
     lpTokenSupply: "1000000000",
   };
 
-  const limitOrders = [
+  const limitOrders: LimitOrder[] = [
     {
-      orderId: 1,
-      tokenIn: "1",
-      tokenOut: "3",
+      orderId: "1",
+      tokenInId: "1",
+      tokenOutId: "3",
       tokenInAmount: "10000",
       tokenOutAmount: "11000",
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021-09-01T00:00:00Z",
     },
     {
-      orderId: 2,
-      tokenIn: "1",
-      tokenOut: "3",
+      orderId: "2",
+      tokenInId: "1",
+      tokenOutId: "3",
       tokenInAmount: "10000",
       tokenOutAmount: "10050",
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021-09-01T00:00:00Z",
     },
   ];
 
@@ -93,14 +91,7 @@ function scenarioSingleHopWithLimitOrders() {
   poolStore.setPoolList([poolAB]);
   limitStore.setLimitOrders(limitOrders);
 
-  const bestRoute = findBestRoute(
-    tokenA,
-    tokenC,
-    10000,
-    poolStore,
-    limitStore,
-    currentBlockHeight,
-  );
+  const bestRoute = findBestRoute(tokenA, tokenC, 10000, poolStore, limitStore);
   printRouteResult(
     "SCENARIO 1: Single-hop with beneficial limit orders",
     bestRoute,
@@ -176,26 +167,26 @@ function scenarioMultiHopRoute() {
   // Limit orders that might allow skipping tokens:
   // For example, a direct limit order A -> D that could skip B,C if beneficial
   // and a direct limit order D -> F that could skip E.
-  const limitOrders = [
+  const limitOrders: LimitOrder[] = [
     {
-      orderId: 1,
-      tokenIn: "1", // A
-      tokenOut: "4", // D
+      orderId: "1",
+      tokenInId: "1", // A
+      tokenOutId: "4", // D
       tokenInAmount: "10000",
       tokenOutAmount: "20000", // Very beneficial compared to going through B,C
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     },
     {
-      orderId: 2,
-      tokenIn: "4", // D
-      tokenOut: "6", // F
+      orderId: "2",
+      tokenInId: "4", // D
+      tokenOutId: "6", // F
       tokenInAmount: "20000",
       tokenOutAmount: "30000", // Great rate, skipping E
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     },
   ];
 
@@ -206,14 +197,7 @@ function scenarioMultiHopRoute() {
   // Without the limit orders, a route A->B->C->D->E->F might yield less output.
   // With the limit orders A->D and D->F, we can achieve a 2-hop route (A->D limit order, D->F limit order).
 
-  const bestRoute = findBestRoute(
-    tokenA,
-    tokenF,
-    10000,
-    poolStore,
-    limitStore,
-    currentBlockHeight,
-  );
+  const bestRoute = findBestRoute(tokenA, tokenF, 10000, poolStore, limitStore);
   printRouteResult(
     "SCENARIO 2: Multi-hop (up to 5 hops) with beneficial limit orders skipping intermediates",
     bestRoute,
@@ -239,49 +223,42 @@ function scenarioLimitOrdersOnly() {
   poolStore.setTokenList([tokenA, tokenX, tokenY, tokenF]);
 
   // Limit orders that chain A->X, X->Y, Y->F with good rates
-  const limitOrders = [
+  const limitOrders: LimitOrder[] = [
     {
-      orderId: 1,
-      tokenIn: "1", // A
-      tokenOut: "2", // X
+      orderId: "1",
+      tokenInId: "1", // A
+      tokenOutId: "2", // X
       tokenInAmount: "10000",
       tokenOutAmount: "12000",
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     },
     {
-      orderId: 2,
-      tokenIn: "2", // X
-      tokenOut: "3", // Y
+      orderId: "2",
+      tokenInId: "2", // X
+      tokenOutId: "3", // Y
       tokenInAmount: "12000",
       tokenOutAmount: "15000",
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     },
     {
-      orderId: 3,
-      tokenIn: "3", // Y
-      tokenOut: "4", // F
+      orderId: "3",
+      tokenInId: "3", // Y
+      tokenOutId: "4", // F
       tokenInAmount: "15000",
       tokenOutAmount: "20000",
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     },
   ];
 
   limitStore.setLimitOrders(limitOrders);
 
-  const bestRoute = findBestRoute(
-    tokenA,
-    tokenF,
-    10000,
-    poolStore,
-    limitStore,
-    currentBlockHeight,
-  );
+  const bestRoute = findBestRoute(tokenA, tokenF, 10000, poolStore, limitStore);
   printRouteResult(
     "SCENARIO 3: Limit orders only (no pools) forming a multi-hop chain",
     bestRoute,
@@ -312,16 +289,16 @@ function scenarioPoolsBetterThanLimit() {
   };
 
   // Add a limit order A->C but with worse rate than the pool
-  const limitOrders = [
+  const limitOrders: LimitOrder[] = [
     {
-      orderId: 1,
-      tokenIn: "1", // A
-      tokenOut: "3", // C
+      orderId: "1",
+      tokenInId: "1", // A
+      tokenOutId: "3", // C
       tokenInAmount: "10000",
       tokenOutAmount: "9000", // Worse than the pool
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     },
   ];
 
@@ -329,14 +306,7 @@ function scenarioPoolsBetterThanLimit() {
   poolStore.setPoolList([poolAC]);
   limitStore.setLimitOrders(limitOrders);
 
-  const bestRoute = findBestRoute(
-    tokenA,
-    tokenC,
-    10000,
-    poolStore,
-    limitStore,
-    currentBlockHeight,
-  );
+  const bestRoute = findBestRoute(tokenA, tokenC, 10000, poolStore, limitStore);
   printRouteResult(
     "SCENARIO 4: Pools yield a better rate than limit orders",
     bestRoute,
@@ -361,20 +331,20 @@ function scenarioManyLimitOrders() {
   // 12 limit orders with descending quality:
   // The best order gives A->B at a ratio of 1:2,
   // then slightly worse until the last one gives 1:1.05
-  const limitOrders = [];
+  const limitOrders: LimitOrder[] = [];
   for (let i = 0; i < 12; i++) {
     // tokenInAmount = 1000, tokenOutAmount decreases with i
     const ratio = 2 - i * 0.1; // best is 2.0, worst ~0.9
     const outAmt = Math.floor(1000 * ratio);
     limitOrders.push({
-      orderId: i + 1,
-      tokenIn: "1",
-      tokenOut: "2",
+      orderId: i + "1",
+      tokenInId: "1",
+      tokenOutId: "2",
       tokenInAmount: "1000",
       tokenOutAmount: outAmt.toString(),
-      owner: PrivateKey.random().toPublicKey(),
-      expiration: "9999999",
-      isActive: true,
+      owner: PrivateKey.random().toPublicKey().toBase58(),
+      expireBlock: 9999999,
+      createdAt: "2021",
     });
   }
 
@@ -382,14 +352,7 @@ function scenarioManyLimitOrders() {
 
   // We have 10,000 of A, can fill up to 10 orders fully (10 * 1000 = 10,000).
   // The function should pick the top 10 orders with the best ratio.
-  const bestRoute = findBestRoute(
-    tokenA,
-    tokenB,
-    10000,
-    poolStore,
-    limitStore,
-    currentBlockHeight,
-  );
+  const bestRoute = findBestRoute(tokenA, tokenB, 10000, poolStore, limitStore);
   printRouteResult(
     "SCENARIO 5: More than 10 limit orders, only best 10 chosen",
     bestRoute,
