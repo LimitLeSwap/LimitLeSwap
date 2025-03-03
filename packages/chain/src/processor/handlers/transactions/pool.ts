@@ -315,7 +315,7 @@ export const handlePoolSwapWithLimit = async (
 
     const poolId = calculatePoolId(tokenIn, tokenOut);
 
-    handleSwapWithLimitOrderPrisma(
+    await handleSwapWithLimitOrderPrisma(
         client,
         tx.tx.hash().toString(),
         poolId.toString(),

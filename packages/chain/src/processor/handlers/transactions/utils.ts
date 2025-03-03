@@ -443,11 +443,11 @@ export const handleExecuteLimitOrderPrisma = async (
 
     const { token0Id, token1Id } = pool;
 
-    const tokenIn = token0In1Out ? token0Id : token1Id;
-    const tokenOut = token0In1Out ? token1Id : token0Id;
+    const tokenOut = token0In1Out ? token0Id : token1Id;
+    const tokenIn = token0In1Out ? token1Id : token0Id;
 
-    const tokenInAmount = token0In1Out ? token0Amount : token1Amount;
-    const tokenOutAmount = token0In1Out ? token1Amount : token0Amount;
+    const tokenOutAmount = token0In1Out ? token0Amount : token1Amount;
+    const tokenInAmount = token0In1Out ? token1Amount : token0Amount;
 
     await client.limitOrder.update({
         where: {
@@ -540,6 +540,8 @@ export const handleSwapWithLimitOrderPrisma = async (
     let remainingAmountIn = tokenInAmount;
     let remainingAmountOut = tokenOutAmount;
 
+    console.log("Bundle", bundle);
+
     for (const order of bundle) {
         const result = await handleExecuteLimitOrderPrisma(
             client,
@@ -556,7 +558,6 @@ export const handleSwapWithLimitOrderPrisma = async (
             remainingAmountIn = Balance.from(remainingTokenIn);
             remainingAmountOut = Balance.from(remainingTokenOut);
 
-            console.log(`Limit order executed: ${order.toString()}`);
             console.table({
                 remainingAmountIn: remainingAmountIn.toBigInt(),
                 remainingAmountOut: remainingAmountOut.toBigInt(),
