@@ -2,10 +2,17 @@ import { calculateSwap } from "./swapFunctions";
 
 const MAX_HOP = 5;
 const MAX_LIMIT_ORDERS = 10;
-const SCALE_FACTOR = 1e3;
+const SCALE_FACTOR = 1e5;
 const EPSILON = 1.0001;
 
+// A bitmask to track used pools (so each pool is used at most once)
 type PoolIdIndex = Record<string, number>;
+
+interface MixedRouteStep extends RouteStep {
+  limitInScaled: number;
+  poolInScaled: number;
+  poolId?: string;
+}
 
 let isDebug = true;
 function log(...args: any[]) {
@@ -19,23 +26,15 @@ interface State {
   scaledAmount: number;
   usedPools: number;
   hopCount: number;
-  steps: RouteStep[];
+  steps: MixedRouteStep[];
 }
 
-/**
- * Builds a graph where each edge (tokenIn => tokenOut) can have:
- *  * A pool for that pair (if it exists)
- *  * A list of relevant limit orders for that pair
- */
 function buildGraph(
   poolStore: PoolStoreState,
   limitStore: LimitStoreState,
   poolIdIndex: PoolIdIndex,
 ) {
-  log("=== buildGraph() start ===");
-  log("Pools:", poolStore.poolList.length);
-  log("LimitOrders:", limitStore.limitOrders.length);
-
+  log("[buildGraph] Start");
   const graph: Record<
     string,
     {
@@ -52,9 +51,7 @@ function buildGraph(
   for (const pool of poolStore.poolList) {
     const t0 = pool.token0;
     const t1 = pool.token1;
-    log(
-      `Adding pool: ${pool.poolId}, tokens: ${t0.name}->${t1.name} fee=${pool.fee}`,
-    );
+    log(`[buildGraph] Pool ${pool.poolId}: ${t0.name} <-> ${t1.name}`);
 
     if (!graph[t0.name]) {
       graph[t0.name] = [];
@@ -84,7 +81,7 @@ function buildGraph(
     );
     if (!tokenIn || !tokenOut) {
       console.warn(
-        `Skipping LimitOrder ${order.orderId} because tokens not found`,
+        `[buildGraph] Skipping order ${order.orderId} (invalid tokens)`,
       );
       continue;
     }
@@ -95,6 +92,7 @@ function buildGraph(
     if (!graph[tokenIn.name]) {
       graph[tokenIn.name] = [];
     }
+
     let edge = graph[tokenIn.name].find(
       (e) => e.tokenOut.name === tokenOut.name,
     );
@@ -108,11 +106,11 @@ function buildGraph(
       tokenOutAmount: outAmt,
     });
     log(
-      `Added LimitOrder ${order.orderId}, ${tokenIn.name} => ${tokenOut.name}, scaled in=${inAmt}, out=${outAmt}`,
+      `[buildGraph] Order ${order.orderId}, ${tokenIn.name} -> ${tokenOut.name}, scaledIn=${inAmt}, scaledOut=${outAmt}`,
     );
   }
 
-  log("=== buildGraph() complete ===");
+  log("[buildGraph] Complete");
   return graph;
 }
 
@@ -130,35 +128,31 @@ function simulateMixedHop(
   scaledAmountIn: number,
   usedPools: number,
   poolIdIndex: PoolIdIndex,
-): RouteStep {
+): MixedRouteStep {
   log(
-    `simulateMixedHop: tokenIn=${tokenIn.name}, tokenOut=${edge.tokenOut.name}, scaledAmountIn=${scaledAmountIn}`,
+    `[simulateMixedHop] ${tokenIn.name} => ${edge.tokenOut.name}, scaledIn=${scaledAmountIn}`,
   );
+
+  let poolAvailable = false;
+  let poolId: string | undefined = undefined;
+  if (edge.pool) {
+    const idx = poolIdIndex[edge.pool.poolId] ?? -1;
+    if (idx >= 0) {
+      const alreadyUsed = ((usedPools >> idx) & 1) === 1;
+      poolAvailable = !alreadyUsed;
+      poolId = edge.pool.poolId;
+    }
+  }
 
   let bestOut = 0;
   let bestDist = 0;
   let bestOrders: typeof edge.orders = [];
 
-  let poolIndex = -1;
-  let poolAvailable = false;
-  if (edge.pool) {
-    poolIndex = poolIdIndex[edge.pool.poolId] ?? -1;
-    if (poolIndex >= 0) {
-      const alreadyUsed = ((usedPools >> poolIndex) & 1) === 1;
-      poolAvailable = !alreadyUsed;
-    }
-  }
-
-  log(
-    `  Pool Available? ${poolAvailable}, poolId=${edge.pool?.poolId || "None"}`,
-  );
-
-  function knapsack(orders: typeof edge.orders, capacity: number) {
+  function knapsackLimitOrders(orders: typeof edge.orders, capacity: number) {
     if (capacity <= 0 || orders.length === 0) {
       return { bestVal: 0, chosen: [] as typeof edge.orders };
     }
     const n = orders.length;
-
     const dp: number[][][] = Array.from({ length: n + 1 }, () =>
       Array.from({ length: capacity + 1 }, () =>
         Array(MAX_LIMIT_ORDERS + 1).fill(0),
@@ -210,32 +204,33 @@ function simulateMixedHop(
     return { bestVal, chosen };
   }
 
-  log(`  # of limit orders on this edge: ${edge.orders.length}`);
-
   for (let dist = 0; dist <= scaledAmountIn; dist++) {
     const limitIn = dist;
     const poolIn = scaledAmountIn - dist;
 
-    const { bestVal: limitOut, chosen } = knapsack(edge.orders, limitIn);
+    const { bestVal: limitOut, chosen } = knapsackLimitOrders(
+      edge.orders,
+      limitIn,
+    );
 
     let poolOut = 0;
-    if (poolIn > 0 && poolAvailable && edge.pool) {
-      const realAmountIn = poolIn * SCALE_FACTOR;
-      const poolBuyTokenReserve =
-        edge.pool.token0.name === edge.tokenOut.name
+    if (poolAvailable && poolIn > 0 && edge.pool) {
+      const realIn = poolIn * SCALE_FACTOR;
+
+      const poolBuyReserve =
+        edge.pool.token0.tokenId === edge.tokenOut.tokenId
           ? Number(edge.pool.token0Amount)
           : Number(edge.pool.token1Amount);
-
-      const poolSellTokenReserve =
-        edge.pool.token0.name === edge.tokenOut.name
+      const poolSellReserve =
+        edge.pool.token0.tokenId === edge.tokenOut.tokenId
           ? Number(edge.pool.token1Amount)
           : Number(edge.pool.token0Amount);
-
       const feeTier = Number(edge.pool.fee);
+
       const { amountOut } = calculateSwap(
-        poolBuyTokenReserve,
-        poolSellTokenReserve,
-        realAmountIn,
+        poolBuyReserve,
+        poolSellReserve,
+        realIn,
         feeTier,
       );
       poolOut = Math.floor(amountOut / SCALE_FACTOR);
@@ -250,54 +245,39 @@ function simulateMixedHop(
   }
 
   log(
-    `  Best combination: limitIn=${bestDist}, poolIn=${scaledAmountIn - bestDist}, totalOut=${bestOut}`,
+    `  => bestDist=${bestDist}, totalOut=${bestOut}, poolIn=${scaledAmountIn - bestDist}, #orders=${bestOrders.length}`,
   );
 
-  const routeStep: RouteStep = {
+  const step: MixedRouteStep = {
     tokenIn,
     tokenOut: edge.tokenOut,
     orders: bestOrders,
     poolSwap: false,
     amountIn: scaledAmountIn,
     amountOut: bestOut,
+    limitInScaled: bestDist,
+    poolInScaled: scaledAmountIn - bestDist,
   };
-
   if (poolAvailable && bestDist < scaledAmountIn && edge.pool) {
-    routeStep.poolSwap = true;
+    step.poolSwap = true;
+    step.poolId = poolId;
   }
-
-  log(
-    `  => simulateMixedHop returns step: poolSwap=${routeStep.poolSwap}, amountOut=${routeStep.amountOut}, #orders=${bestOrders.length}`,
-  );
-  return routeStep;
+  return step;
 }
 
-export function findBestRoute(
+function runBFS(
   sourceToken: RouteToken,
   targetToken: RouteToken,
-  rawInitialAmount: number,
+  scaledInitialAmount: number,
   poolStore: PoolStoreState,
   limitStore: LimitStoreState,
-): CompleteRoute | null {
-  log("=== findBestRoute() called ===");
-  log(
-    `source=${sourceToken.name}, target=${targetToken.name}, rawAmount=${rawInitialAmount}`,
-  );
-
-  const scaledInitialAmount = Math.floor(rawInitialAmount / SCALE_FACTOR);
-  log(`Scaled initial amount: ${scaledInitialAmount}`);
-
-  if (scaledInitialAmount <= 0) {
-    console.warn("Scaled initial amount <= 0, returning null");
-    return null;
-  }
+): { steps: MixedRouteStep[]; finalAmountOut: number } | null {
+  log("[runBFS] Start BFS with scaledInitialAmount:", scaledInitialAmount);
 
   const poolIdIndex: PoolIdIndex = {};
-  poolStore.poolList.forEach((pool, idx) => {
-    poolIdIndex[pool.poolId] = idx;
+  poolStore.poolList.forEach((p, idx) => {
+    poolIdIndex[p.poolId] = idx;
   });
-
-  log("poolIdIndex mapping:", poolIdIndex);
 
   const graph = buildGraph(poolStore, limitStore, poolIdIndex);
 
@@ -321,38 +301,37 @@ export function findBestRoute(
   }
   visited[sourceToken.tokenId][0][0] = scaledInitialAmount;
 
-  let bestRoute: CompleteRoute | null = null;
+  let bestRoute: { steps: MixedRouteStep[]; finalAmountOut: number } | null =
+    null;
 
   while (queue.length > 0) {
     const { token, scaledAmount, usedPools, hopCount, steps } = queue.shift()!;
     log(
-      `BFS pop: token=${token.name}, scaledAmt=${scaledAmount}, usedPools=0x${usedPools.toString(
-        16,
-      )}, hopCount=${hopCount}`,
+      `[runBFS] Pop => token=${token.name}, scaledAmt=${scaledAmount}, usedPools=${usedPools.toString(
+        2,
+      )}, hop=${hopCount}`,
     );
 
     if (token.tokenId === targetToken.tokenId) {
-      const realAmount = scaledAmount * SCALE_FACTOR;
-      log(` => Reached target with realAmount=${realAmount}`);
-      if (!bestRoute || realAmount > bestRoute.finalAmountOut) {
+      const realAmt = scaledAmount * SCALE_FACTOR;
+      log(`   Reached target with realAmt=${realAmt}`);
+      if (!bestRoute || realAmt > bestRoute.finalAmountOut) {
         bestRoute = {
           steps,
-          finalAmountOut: realAmount,
+          finalAmountOut: realAmt,
         };
-        log(" => New best route found!");
+        log("   => Updated bestRoute");
       }
     }
 
     if (hopCount === MAX_HOP) {
-      log(" => Reached max hop, skip expansion");
       continue;
     }
 
     const edges = graph[token.name] || [];
-    log(
-      ` => Expanding edges: #${edges.length}, token=${token.name}, scaledAmt=${scaledAmount}`,
-    );
     for (const edge of edges) {
+      log(`  - Edge from ${token.name} to ${edge.tokenOut.name}`);
+      log(edge);
       const step = simulateMixedHop(
         token,
         edge,
@@ -361,31 +340,21 @@ export function findBestRoute(
         poolIdIndex,
       );
       if (step.amountOut <= 0) {
-        log("   -> skip, no output from mixedHop");
         continue;
       }
-
-      let nextUsedPools = usedPools;
-      if (step.poolSwap && edge.pool) {
-        const idx = poolIdIndex[edge.pool.poolId];
-        nextUsedPools = usedPools | (1 << idx);
-      }
-
+      const nextUsedPools =
+        step.poolSwap && step.poolId
+          ? usedPools | (1 << poolIdIndex[step.poolId])
+          : usedPools;
       const nextHop = hopCount + 1;
-      const nextAmount = step.amountOut;
       const nextToken = step.tokenOut;
+      const nextAmount = step.amountOut;
 
       if (!visited[nextToken.tokenId][nextUsedPools]) {
         visited[nextToken.tokenId][nextUsedPools] = Array(MAX_HOP + 1).fill(0);
       }
-      const oldAmount = visited[nextToken.tokenId][nextUsedPools][nextHop] || 0;
-
-      if (nextAmount > oldAmount * EPSILON) {
-        log(
-          `   -> BFS push: nextToken=${nextToken.name}, nextAmt=${nextAmount}, usedPools=0x${nextUsedPools.toString(
-            16,
-          )}, hop=${nextHop}`,
-        );
+      const oldAmt = visited[nextToken.tokenId][nextUsedPools][nextHop] || 0;
+      if (nextAmount > oldAmt * EPSILON) {
         visited[nextToken.tokenId][nextUsedPools][nextHop] = nextAmount;
         queue.push({
           token: nextToken,
@@ -394,20 +363,147 @@ export function findBestRoute(
           hopCount: nextHop,
           steps: [...steps, step],
         });
-      } else {
-        log(
-          `   -> skip, improvement is too small or no improvement (nextAmt=${nextAmount} vs oldAmt=${oldAmount})`,
-        );
       }
     }
   }
 
-  log("=== BFS finished ===");
-  if (!bestRoute) {
-    log("No route found, returning null");
-  } else {
-    log(`Best finalAmountOut: ${bestRoute.finalAmountOut}`);
-    log("Best Route Steps:", bestRoute.steps);
-  }
   return bestRoute;
+}
+
+function finalizeRoute(
+  rawInitialAmount: number,
+  routeSteps: MixedRouteStep[],
+  poolStore: PoolStoreState,
+  limitStore: LimitStoreState,
+): CompleteRoute {
+  log("[finalizeRoute] Start. rawInitialAmount=", rawInitialAmount);
+
+  let remainingAmount = rawInitialAmount;
+  const finalSteps: RouteStep[] = [];
+
+  for (let i = 0; i < routeSteps.length; i++) {
+    const step = routeSteps[i];
+
+    let realLimitIn = 0;
+    let realLimitOut = 0;
+    for (let j = 0; j < step.orders.length; j++) {
+      const exactOrder = limitStore.limitOrders.find(
+        (o) => o.orderId === step.orders[j].orderId,
+      );
+      if (!exactOrder) {
+        console.warn(`[finalizeRoute] Missing order ${step.orders[j].orderId}`);
+        continue;
+      }
+
+      step.orders[j].tokenInAmount = Number(exactOrder.tokenOutAmount);
+      step.orders[j].tokenOutAmount = Number(exactOrder.tokenInAmount);
+
+      realLimitIn += Number(exactOrder.tokenOutAmount);
+      realLimitOut += Number(exactOrder.tokenInAmount);
+    }
+
+    remainingAmount -= realLimitIn;
+    log(
+      `[finalizeRoute] Step ${i}: ${step.tokenIn.name} -> ${step.tokenOut.name}, limitIn=${realLimitIn}, limitOut=${realLimitOut}`,
+    );
+
+    let realPoolIn = 0;
+    let realPoolOut = 0;
+    if (step.poolSwap && step.poolId) {
+      const pool = poolStore.poolList.find((p) => p.poolId === step.poolId);
+      if (!pool) {
+        console.warn(`[finalizeRoute] Missing pool ${step.poolId}`);
+      } else {
+        const poolBuyReserve =
+          pool.token0.tokenId === step.tokenOut.tokenId
+            ? Number(pool.token0Amount)
+            : Number(pool.token1Amount);
+        const poolSellReserve =
+          pool.token0.tokenId === step.tokenOut.tokenId
+            ? Number(pool.token1Amount)
+            : Number(pool.token0Amount);
+        const feeTier = Number(pool.fee);
+
+        const { amountOut } = calculateSwap(
+          poolBuyReserve,
+          poolSellReserve,
+          remainingAmount,
+          feeTier,
+        );
+
+        realPoolIn = remainingAmount;
+        realPoolOut = Math.floor(amountOut);
+      }
+    }
+
+    log(
+      `[finalizeRoute] Step ${i}: ${step.tokenIn.name} -> ${step.tokenOut.name}, poolIn=${remainingAmount}, poolOut=${realPoolOut}`,
+    );
+
+    const finalStep: RouteStep = {
+      tokenIn: step.tokenIn,
+      tokenOut: step.tokenOut,
+      orders: step.orders,
+      poolSwap: step.poolSwap,
+      amountIn: realLimitIn + realPoolIn,
+      amountOut: realLimitOut + realPoolOut,
+    };
+    finalSteps.push(finalStep);
+
+    remainingAmount = realLimitOut + realPoolOut;
+
+    log(
+      `[finalizeRoute] Step ${i}: ${step.tokenIn.name} -> ${step.tokenOut.name}, finalAmountOut=${remainingAmount}`,
+    );
+  }
+
+  log("[finalizeRoute] Complete. finalAmountOut=", remainingAmount);
+  return {
+    steps: finalSteps,
+    finalAmountOut: remainingAmount,
+  };
+}
+
+export function findBestRoute(
+  sourceToken: RouteToken,
+  targetToken: RouteToken,
+  rawInitialAmount: number,
+  poolStore: PoolStoreState,
+  limitStore: LimitStoreState,
+): CompleteRoute | null {
+  log(
+    "[findBestRoute] Called with",
+    sourceToken.name,
+    "->",
+    targetToken.name,
+    "rawInitialAmount=",
+    rawInitialAmount,
+  );
+
+  const scaledInitialAmount = Math.floor(rawInitialAmount / SCALE_FACTOR);
+  if (scaledInitialAmount <= 0) {
+    log("[findBestRoute] scaledInitialAmount <= 0 => no route");
+    return null;
+  }
+
+  const bfsResult = runBFS(
+    sourceToken,
+    targetToken,
+    scaledInitialAmount,
+    poolStore,
+    limitStore,
+  );
+  if (!bfsResult) {
+    log("[findBestRoute] BFS returned null => no route");
+    return null;
+  }
+
+  const finalRoute = finalizeRoute(
+    rawInitialAmount,
+    bfsResult.steps,
+    poolStore,
+    limitStore,
+  );
+  log("[findBestRoute] Final route out:", finalRoute.finalAmountOut);
+  return finalRoute;
 }
