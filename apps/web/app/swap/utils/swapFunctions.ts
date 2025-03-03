@@ -78,11 +78,13 @@ export const calculateSwap = (
   sellAmount: number,
   poolFee: number = 3,
 ) => {
-  const amountInWithFee = sellAmount * (1000 - poolFee);
+  const feeMultiplier = 1000;
+  const amountInWithFee =
+    (sellAmount * (feeMultiplier - poolFee)) / feeMultiplier;
 
-  const numerator = poolBuyTokenReserve * poolSellTokenReserve * 1000;
-  const denominator = poolSellTokenReserve * 1000 + amountInWithFee;
-  const amountOut = poolBuyTokenReserve - numerator / denominator;
+  const amountOut =
+    (amountInWithFee * poolBuyTokenReserve) /
+    (poolSellTokenReserve + amountInWithFee);
 
   const price = (amountOut / sellAmount).toFixed(2);
   const priceImpact = (amountOut / poolBuyTokenReserve) * 100;

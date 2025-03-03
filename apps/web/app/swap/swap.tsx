@@ -17,7 +17,6 @@ import { ArrowUpDown, Route as RouteIcon } from "lucide-react";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { usePoolStore } from "@/lib/stores/poolStore";
 import { useClientStore } from "@/lib/stores/client";
-import { useChainStore } from "@/lib/stores/chain";
 import { useChartStore, useObserveCandles } from "@/lib/stores/chartStore";
 import {
   OrderBundle,
@@ -59,17 +58,17 @@ export default function Swap() {
 
   const [waitApproval, setWaitApproval] = useState(false);
   const [route, setRoute] = useState<CompleteRoute | null>(null);
-  const [limitState, setlimitState] = useState<{
-    execute: boolean;
-    ordersToFill: null | any[];
-    bestAmountOut: number;
-    newPriceImpact: number;
-  }>({
-    execute: false,
-    ordersToFill: [],
-    bestAmountOut: 0,
-    newPriceImpact: 0,
-  });
+  // const [limitState, setlimitState] = useState<{
+  //   execute: boolean;
+  //   ordersToFill: null | any[];
+  //   bestAmountOut: number;
+  //   newPriceImpact: number;
+  // }>({
+  //   execute: false,
+  //   ordersToFill: [],
+  //   bestAmountOut: 0,
+  //   newPriceImpact: 0,
+  // });
   const [isCalculating, setIsCalculating] = useState(false);
 
   const { toast } = useToast();
@@ -192,20 +191,25 @@ export default function Swap() {
 
       if (route.steps.length === 1) {
         if (route.steps[0].orders.length > 0) {
+          console.log("swap with limit");
           const tokenIn = TokenId.from(sellToken?.tokenId);
           const tokenOut = TokenId.from(buyToken?.tokenId);
-          const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
-          const amountOut = Balance.from(Math.floor(limitState.bestAmountOut));
+          const amountIn = Balance.from(route.steps[0].amountIn);
+          const amountOut = Balance.from(route.steps[0].amountOut);
           const orderbundle = OrderBundle.empty();
-          for (
-            let i = 0;
-            limitState.ordersToFill && i < limitState.ordersToFill.length;
-            i++
-          ) {
+          for (let i = 0; i < route.steps[0].orders.length; i++) {
             orderbundle.bundle[i] = Field.from(
-              limitState.ordersToFill[i].orderId,
+              route.steps[0].orders[i].orderId,
             );
           }
+          console.log(
+            "swap with limit",
+            tokenIn.toString(),
+            tokenOut.toString(),
+            amountIn.toString(),
+            amountOut.toString(),
+            orderbundle.bundle.map((x) => x.toString()),
+          );
           const tx = await client.client.transaction(
             PublicKey.fromBase58(wallet),
             async () => {
@@ -226,15 +230,19 @@ export default function Swap() {
             throw new Error("Transaction failed");
           }
         } else {
+          console.log("swap without limit");
           const tokenIn = TokenId.from(sellToken?.tokenId);
           const tokenOut = TokenId.from(buyToken?.tokenId);
-          const amountIn = Balance.from(sellAmountNum * Number(DECIMALS));
-          const amountOut = Balance.from(Math.floor(state.buyAmount));
+          const amountIn = Balance.from(route.steps[0].amountIn);
+          const amountOut = Balance.from(route.steps[0].amountOut);
 
-          console.table({
-            amountIn: amountIn.toBigInt(),
-            amountOut: amountOut.toBigInt(),
-          });
+          console.log(
+            "swap without limit",
+            tokenIn.toString(),
+            tokenOut.toString(),
+            amountIn.toString(),
+            amountOut.toString(),
+          );
 
           const tx = await client.client.transaction(
             PublicKey.fromBase58(wallet),
@@ -251,6 +259,7 @@ export default function Swap() {
           }
         }
       } else if (route.steps.length > 1) {
+        console.log("swap with route");
         let tradeRoute = Route.empty();
 
         for (let i = 0; i < route.steps.length; i++) {
@@ -265,11 +274,13 @@ export default function Swap() {
           tradeRoute.path[i] = Step.from(
             TokenId.from(step.tokenIn.tokenId),
             TokenId.from(step.tokenOut.tokenId),
-            Balance.from(Math.floor(step.amountIn)),
-            Balance.from(Math.floor(step.amountOut)),
+            Balance.from(step.amountIn),
+            Balance.from(step.amountOut),
             limitOrders,
           );
         }
+
+        console.log("tradeRoute", tradeRoute);
 
         const tx = await client.client.transaction(
           PublicKey.fromBase58(wallet),
@@ -383,12 +394,12 @@ export default function Swap() {
                 type="text"
                 className=" cursor-default"
               />
-              {limitState.execute ? (
+              {/* {limitState.execute ? (
                 <p className=" text-xl text-green-600">
                   <span className=" text-xs">With LimitSwap:</span>{" "}
                   {(limitState.bestAmountOut / Number(DECIMALS)).toFixed(6)}
                 </p>
-              ) : null}
+              ) : null} */}
               {/* <p
                 className={
                   Number(state.priceImpact) > 30
@@ -400,12 +411,12 @@ export default function Swap() {
               >
                 Price Impact: {state.priceImpact} %
               </p> */}
-              {limitState.execute ? (
+              {/* {limitState.execute ? (
                 <p className=" text-green-600">
                   <span className=" text-xs">With LimitSwap:</span>{" "}
                   {limitState.newPriceImpact} %
                 </p>
-              ) : null}
+              ) : null} */}
             </Label>
 
             <Select
